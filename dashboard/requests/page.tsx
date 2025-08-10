@@ -1,0 +1,186 @@
+
+
+"use client";
+
+import { useState, useEffect } from 'react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  FileText,
+  User,
+  Calendar,
+  Clock,
+  Loader2,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
+import { TeacherRequest, Semester, Session, SessionStudent, StudentProfile } from "@/lib/types";
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { useDatabase } from '@/context/database-context';
+
+export default function RequestsPage() {
+  const { requests, loading, updateRequest, updateSemester, updateStudent, getSemester, getStudent } = useDatabase();
+  const { toast } = useToast();
+
+  const handleAction = async (request: TeacherRequest, action: "approved" | "denied") => {
+    
+    try {
+        if (action === 'approved' && request.type === 'remove-student') {
+            const semester = await getSemester(request.details.semesterId);
+            const student = await getStudent(request.details.studentId);
+            
+            if (!semester || !student) throw new Error("Could not find semester or student for this request.");
+
+            const masterSchedule = JSON.parse(JSON.stringify(semester.masterSchedule));
+            const daySessions = masterSchedule[request.teacherName]?.[request.details.day];
+            if (!daySessions) throw new Error("Day sessions not found for teacher.");
+            
+            const sessionIndex = daySessions.findIndex((s: Session) => s.id === request.details.sessionId);
+            if (sessionIndex === -1) throw new Error("Session not found in schedule.");
+            
+            // Remove the student from the session
+            masterSchedule[request.teacherName][request.details.day][sessionIndex].students = 
+                daySessions[sessionIndex].students.filter((s: SessionStudent) => s.id !== request.details.studentId);
+            
+            // Also remove the student from their own `enrolledIn` list
+            const updatedEnrolledIn = student.enrolledIn.filter(e => !(e.semesterId === request.details.semesterId && e.sessionId === request.details.sessionId));
+            
+            await updateStudent(student.id, { enrolledIn: updatedEnrolledIn });
+            await updateSemester(semester.id, { masterSchedule });
+        }
+        
+        await updateRequest(request.id, { status: action });
+        
+        toast({
+          title: `Request ${action}`,
+          description: `The request has been successfully ${action}.`,
+        });
+    } catch (error: any) {
+        console.error(`Error updating request ${request.id}: `, error);
+        toast({
+            title: `Failed to ${action} request`,
+            description: `There was a problem updating the request. ${error.message}`,
+            variant: "destructive",
+        });
+    }
+  };
+
+
+  const getRequestTitle = (request: TeacherRequest) => {
+    switch (request.type) {
+      case "add-student":
+        return `Request to Add Student`;
+      case "remove-student":
+        return `Request to Remove Student`;
+      case "change-time":
+        return `Request to Change Time`;
+      default:
+        return `New Request`;
+    }
+  };
+
+  const pendingRequests = requests.filter((r) => r.status === "pending");
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <FileText className="h-8 w-8 text-primary" />
+        <h1 className="text-3xl font-bold font-headline">Teacher Requests</h1>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : pendingRequests.length === 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>No Pending Requests</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">
+              There are no pending requests from teachers at this time.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {pendingRequests.map((request) => (
+            <Card key={request.id} className="flex flex-col">
+              <CardHeader>
+                <CardTitle className="flex justify-between items-start">
+                  <span>{getRequestTitle(request)}</span>
+                  <Badge variant={request.type === 'remove-student' ? 'destructive' : 'secondary'}>
+                    {request.type.replace("-", " ")}
+                  </Badge>
+                </CardTitle>
+                <CardDescription>
+                  Submitted on{" "}
+                  {format(new Date(request.date), "MMMM dd, yyyy")}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex-grow space-y-4 text-sm">
+                <div className="flex items-start gap-3">
+                  <User className="w-4 h-4 mt-1 text-muted-foreground" />
+                  <div>
+                    <p className="font-semibold">{request.details.studentName}</p>
+                    <p className="text-muted-foreground">Student</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <User className="w-4 h-4 mt-1 text-muted-foreground" />
+                  <div>
+                    <p className="font-semibold">{request.teacherName}</p>
+                    <p className="text-muted-foreground">Teacher</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Calendar className="w-4 h-4 mt-1 text-muted-foreground" />
+                  <div>
+                    <p className="font-semibold">{request.details.day}</p>
+                    <p className="text-muted-foreground">Class Day</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Clock className="w-4 h-4 mt-1 text-muted-foreground" />
+                  <div>
+                    <p className="font-semibold">{request.details.sessionTime}</p>
+                    <p className="text-muted-foreground">Class Time</p>
+                  </div>
+                </div>
+                <div className="border-l-2 pl-3 ml-1.5">
+                    <p className="font-semibold text-muted-foreground">Reason:</p>
+                    <p className="italic">"{request.details.reason}"</p>
+                </div>
+              </CardContent>
+              <CardFooter className="flex gap-2">
+                <Button
+                  className="w-full"
+                  onClick={() => handleAction(request, "approved")}
+                >
+                  <CheckCircle /> Approve
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="w-full"
+                  onClick={() => handleAction(request, "denied")}
+                >
+                  <XCircle /> Deny
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
