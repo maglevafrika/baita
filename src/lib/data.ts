@@ -1,8 +1,19 @@
+// src/lib/data.ts
+import { 
+  UserProfile, 
+  Semester, 
+  StudentProfile, 
+  TeacherRequest, 
+  Applicant, 
+  Leave, 
+  SessionStudent, 
+  PaymentSettings 
+} from "./types";
+import { collection, addDoc, writeBatch, doc, getDocs } from 'firebase/firestore';
+import { db } from './firebase';
 
-
-import { UserInDb, Semester, StudentProfile, TeacherRequest, Applicant, Leave, Session, SessionStudent, PaymentSettings } from "./types";
-
-export const getInitialUsers = (): UserInDb[] => {
+// Legacy data for migration purposes
+export const getLegacyUsers = () => {
     return [
         { id: '1', username: 'admin1', name: 'Admin One', roles: ['admin'], password: 'Rs!2325' },
         { id: '2', username: 'رغد', name: 'Raghad', roles: ['admin'], password: 'Rs!2325' },
@@ -23,9 +34,9 @@ export const getInitialUsers = (): UserInDb[] => {
 };
 
 export const getInitialApplicants = (): Applicant[] => {
+    const now = new Date().toISOString();
     return [
         {
-            id: 'APP001',
             name: 'سليمان الأحمد',
             gender: 'male',
             dob: '1995-03-12',
@@ -36,9 +47,10 @@ export const getInitialApplicants = (): Applicant[] => {
             status: 'pending-review',
             applicationDate: '2024-05-10T10:00:00Z',
             lastUpdated: '2024-05-10T10:00:00Z',
+            createdAt: now,
+            updatedAt: now,
         },
         {
-            id: 'APP002',
             name: 'لمى الخالدي',
             gender: 'female',
             dob: '2001-11-25',
@@ -52,9 +64,10 @@ export const getInitialApplicants = (): Applicant[] => {
             interviewDate: '2024-05-28',
             interviewTime: '14:00',
             interviewer: 'Hani',
+            createdAt: now,
+            updatedAt: now,
         },
         {
-            id: 'APP003',
             name: 'Tariq Al-Farsi',
             gender: 'male',
             dob: '1988-08-01',
@@ -80,43 +93,49 @@ export const getInitialApplicants = (): Applicant[] => {
                   generalTalent: 90,
                   psychologicalBalance: 90,
                 },
-            }
+            },
+            createdAt: now,
+            updatedAt: now,
         },
     ];
 };
 
 export const getInitialLeaves = (): Leave[] => {
+    const now = new Date().toISOString();
     return [
         {
-            id: 'LEAVE001',
             type: 'student',
             personId: 'STU001',
             personName: 'أحمد الفلاني',
             startDate: '2024-10-01',
             endDate: '2024-10-07',
             reason: 'Family vacation',
-            status: 'approved'
+            status: 'approved',
+            createdAt: now,
+            updatedAt: now,
         },
         {
-            id: 'LEAVE002',
             type: 'teacher',
             personId: '6',
             personName: 'نهاد',
             startDate: '2024-11-15',
             endDate: '2024-11-22',
             reason: 'Attending a music conference',
-            status: 'pending'
+            status: 'pending',
+            createdAt: now,
+            updatedAt: now,
         }
-    ]
-}
+    ];
+};
 
 export const getInitialPaymentSettings = (): PaymentSettings => ({
     monthly: 500,
     quarterly: 1500,
     yearly: 5500,
+    updatedAt: new Date().toISOString(),
 });
 
-
+// Schedule parsing remains the same
 const scheduleData = `
 اسم الطالب,رقم الجوال,اليوم,اسم المدرس,الوقت
 سهل الرويلي,503817620,السبت,استاذ حازم,2:00-3:00
@@ -141,142 +160,13 @@ const scheduleData = `
 وسام القرني,557055675,الاربعاء,استاذ حازم,6:00-7:00
 نواف الشدوخي,560711170,الاربعاء,استاذ حازم,7:00-8:00
 سلطان عبدالمجيد,555464604,الاربعاء,استاذ حازم,8:00-9:00
-عمار محمد الهندي,562317277,السبت,استاذة نانسي,4:00-5:00
-نواف السلومي,570771616,السبت,استاذة نانسي,5:00-6:00
-عادل المالكي,534130530,السبت,استاذة نانسي,5:00-6:00
-عبدالله مساعد الزهراني,553452142,السبت,استاذة نانسي,5:00-6:00
-صهيب هاشم عبد العزيز,509548809,السبت,استاذة نانسي,5:00-6:00
-خولة السيد,559693333,السبت,استاذة نانسي,6:00-7:00
-اسماء يحيى العواجي,597078663,الاحد,استاذة نانسي,2:00-3:00
-محمد عبد المحسن القصير,500004080,الاثنين,استاذة نانسي,4:00-5:00
-مشاري عبدالله,509844294,الاثنين,استاذة نانسي,5:00-6:00
-فهد علي,599135225,الاثنين,استاذة نانسي,6:00-7:00
-امل سعود علي الشمري,533377329,الثلاثاء,استاذة نانسي,1:00-2:00
-محمد منير سندي,561992266,الثلاثاء,استاذة نانسي,6:00-7:00
-نهار العوجان,553465131,الثلاثاء,استاذة نانسي,6:00-7:00
-محمد بن عثمان,544411105,الثلاثاء,استاذة نانسي,7:00-8:00
-ابراهيم سعود الناجم,553333124,الثلاثاء,استاذة نانسي,7:00-8:00
-احمد حسن عجيم,500457486,الثلاثاء,استاذة نانسي,7:00-8:00
-نورة الخراشي,558260260,الاربعاء,استاذة نانسي,1:00-2:00
-غادة محمد عجاج,500003899,الاربعاء,استاذة نانسي,2:00-3:00
-منتهى الفارسي,556179004,الاربعاء,استاذة نانسي,5:00-6:00
-دانة الدريس,540281281,الاربعاء,استاذة نانسي,6:00-7:00
-غالب صالح,540041411,السبت,استاذ نهاد,2:00-3:00
-فهد العتيبي,544422994,الاحد,استاذ نهاد,6:00-7:00
-خولة,566566036,الاثنين,استاذ نهاد,1:00-2:00
-احمد الهلالي,538617470,الاثنين,استاذ نهاد,4:00-5:00
-ملاك القحطاني,535633114,الاثنين,استاذ نهاد,5:00-6:00
-احمد عبد الواحد,562326161,الاثنين,استاذ نهاد,6:00-7:00
-عبدالله الجبر,552299414,الثلاثاء,استاذ نهاد,12:00-1:00
-مجدي مروان,552700720,الثلاثاء,استاذ نهاد,1:00-2:00
-سعود بن نايف,542118020,الثلاثاء,استاذ نهاد,4:00-5:00
-محمد بدران,558808875,الثلاثاء,استاذ نهاد,5:00-6:00
-منال بدر,534094342,الثلاثاء,استاذ نهاد,6:00-7:00
-مساعد خليفة,555146650,الاربعاء,استاذ نهاد,1:00-2:00
-خالد الحازمي,505429913,الاربعاء,استاذ نهاد,4:00-5:00
-محمد نويجم,557533222,الاربعاء,استاذ نهاد,5:00-6:00
-فواز الوتيد,534433390,الاربعاء,استاذ نهاد,6:00-7:00
-عبدالله فهد المحيميد,500552070,الاحد,استاذ باسم,2:00-3:00
-سليمان السعدون,555373649,الاحد,استاذ باسم,3:00-4:00
-احمد العياضي,538422226,الاحد,استاذ باسم,4:00-5:00
-عدنان محمد الغامدي,503020644,الاحد,استاذ باسم,6:00-7:00
-مجدي نعيم الزور,596106151,الاثنين,استاذ باسم,5:00-6:00
-عبدالله النجار,540003550,الاثنين,استاذ باسم,6:00-7:00
-فيصل الدريس,530665107,الاثنين,استاذ باسم,7:00-8:00
-فراس باكير,569922614,الثلاثاء,استاذ باسم,5:00-6:00
-عبدالله المالكي,555208816,الثلاثاء,استاذ باسم,6:00-7:00
-سعد خالد الغريبي,500959191,الثلاثاء,استاذ باسم,7:00-8:00
-حسين الشيخ,533281921,الاربعاء,استاذ باسم,3:00-4:00
-عبدالرحمن بالبيد,555939434,الاربعاء,استاذ باسم,5:00-6:00
-سكينة البوحليقة,550873793,الاربعاء,استاذ باسم,6:00-7:00
-عبدالوهاب عبدالله الدوسري,550119308,الاربعاء,استاذ باسم,7:00-8:00
-خالد الدوسري,552090559,السبت,استاذ نبيل,1:00-2:00
-ورد,559517892,الاحد,استاذ نبيل,4:00-5:00
-الجوهرة الخليفة,543116856,الاحد,استاذ نبيل,5:00-6:00
-محمد باحجاج,567583915,الاحد,استاذ نبيل,6:00-7:00
-فواز احمد,507067489,الاحد,استاذ نبيل,7:00-8:00
-عبدالله العسكر,505554226,الاثنين,استاذ نبيل,4:00-5:00
-نجمي سيف الدين,540082332,الاثنين,استاذ نبيل,6:00-7:00
-محمد احمد عبدالله,543125344,الاثنين,استاذ نبيل,7:00-8:00
-ابراهيم حلوبي,557273410,الثلاثاء,استاذ نبيل,2:00-3:00
-فيصل سليمان,582844428,الثلاثاء,استاذ نبيل,4:00-5:00
-نسرين رجاء,509550476,الثلاثاء,استاذ نبيل,6:00-7:00
-صالح العمير,566105586,الثلاثاء,استاذ نبيل,7:00-8:00
-مشاري مبارك,548845079,الاربعاء,استاذ نبيل,5:00-6:00
-عبدالمجيد باحليوة,540010906,الاربعاء,استاذ نبيل,6:00-7:00
-بدر ضيف الله العتيبي,502105010,الاربعاء,استاذ نبيل,7:00-8:00
-عادل عبدالله,534700499,السبت,استاذ اسلام,2:00-3:00
-عماد الرشيد,553077749,الاحد,استاذ اسلام,4:00-5:00
-عبدالله ابراهيم,533090500,الاحد,استاذ اسلام,6:00-7:00
-فريد ابراهيم الصلخدي,558432994,الاحد,استاذ اسلام,7:00-8:00
-عبدالله الدوسري,540387019,الاثنين,استاذ اسلام,4:00-5:00
-سلطان عماد,556055036,الاثنين,استاذ اسلام,5:00-6:00
-امل سعيد,543076010,الاثنين,استاذ اسلام,6:00-7:00
-ولاء حسن المختار,501980000,الاثنين,استاذ اسلام,7:00-8:00
-سلمى عيسى آل حسن,535856514,الاثنين,استاذ اسلام,8:00-9:00
-خالد سعيد الشامي,555450813,الثلاثاء,استاذ اسلام,3:00-4:00
-محمد الابراهيم,545554646,الثلاثاء,استاذ اسلام,4:00-5:00
-ساره,510479188,الثلاثاء,استاذ اسلام,5:00-6:00
-احمد الشهري,569911140,الثلاثاء,استاذ اسلام,6:00-7:00
-فهد محمد السهلي,554448523,الثلاثاء,استاذ اسلام,7:00-8:00
-امين,543160389,الاربعاء,استاذ اسلام,4:00-5:00
-مصطفى السادة,546375536,الاربعاء,استاذ اسلام,6:00-7:00
-اريج اسعد حبوان قيسى,551084771,الاربعاء,استاذ اسلام,7:00-8:00
-نورة الشهراني,544597598,الاربعاء,استاذ اسلام,8:00-9:00
-فيصل علي الشهري,500434336,الاحد,استاذ ناجي,1:30-2:30
-منى,,الاحد,استاذ ناجي,3:00-4:00
-محمد العنزي,500003899,الاحد,استاذ ناجي,4:00-5:00
-ثامر عبدالرحمن,548088866,الاحد,استاذ ناجي,5:00-6:00
-صلاح ممدوح ابو قاسم,503055996,الاحد,استاذ ناجي,6:00-7:00
-منصور المطيري,503251730,الاحد,استاذ ناجي,6:00-7:00
-نواف الناجي,535010013,الاحد,استاذ ناجي,7:00-8:00
-سلطان محارب,567446272,الاحد,استاذ ناجي,7:00-8:00
-منذر قباني,503290532,الاثنين,استاذ ناجي,1:00-2:00
-مهند البلخي,554849707,الاثنين,استاذ ناجي,6:00-7:00
-فهد الخلفان,552111114,الاثنين,استاذ ناجي,7:00-8:00
-نواف,,الثلاثاء,استاذ ناجي,5:00-6:00
-جعفر الراشد,503494806,الثلاثاء,استاذ ناجي,6:00-7:00
-عبد الرزاق,504420170,الثلاثاء,استاذ ناجي,7:00-8:00
-احلام الشمري,547480434,الاربعاء,استاذ ناجي,3:00-4:00
-احمد الدندن,504919609,الاربعاء,استاذ ناجي,5:00-6:00
-اماني الشاعر,543557874,الاربعاء,استاذ ناجي,6:00-7:00
-عبدالله سالم العلي,508099250,الاربعاء,استاذ ناجي,7:00-8:00
-محاسن حاتم,560790652,السبت,استاذ بسام "قانون",2:00-3:00
-محمد الفكي,553391133,السبت,استاذ بسام "قانون",3:00-4:00
-ذكرى,560236039,الاحد,استاذ بسام "قانون",4:00-5:00
-بثينه,558558843,الاحد,استاذ بسام "قانون",5:00-6:00
-امجاد الدوسري,556073410,الاحد,استاذ بسام "قانون",6:00-7:00
-نوره,971-507880034,الاحد,استاذ بسام "قانون",7:00-8:00
-وحيد عبد المعين حسن,537255944,الاثنين,استاذ بسام "قانون",4:00-5:00
-مها,,الاثنين,استاذ بسام "قانون",5:00-6:00
-اسراء عبدالحكيم,543243606,الاثنين,استاذ بسام "قانون",6:00-7:00
-شمعه اسعد,504797069,الاثنين,استاذ بسام "قانون",7:00-8:00
-خالد المحمود,567869346,الثلاثاء,استاذ بسام "قانون",4:00-5:00
-محمد الغامدي,553542148,الثلاثاء,استاذ بسام "قانون",5:00-6:00
-عبدالله العمري,535067483,الثلاثاء,استاذ بسام "قانون",6:00-7:00
-بدر ناصر السيف,504419340,الثلاثاء,استاذ بسام "قانون",7:00-8:00
-سعد محمد,,الاربعاء,استاذ بسام "قانون",4:00-5:00
-ترانيم,580998045,الاربعاء,استاذ بسام "قانون",5:00-6:00
-مبارك الدوسري,560668787,الاربعاء,استاذ بسام "قانون",6:00-7:00
-الفهديه الفهدي,542965689,الاربعاء,استاذ بسام "قانون",7:00-8:00
-محمد طارق,557466233,الاحد,استاذ هاني "ناي",3:00-4:00
-وفاء,560598002,الاحد,استاذ هاني "ناي",5:00-6:00
-منار الجهيمي,554876290,الاحد,استاذ هاني "ناي",7:00-8:00
-هتون اجواد,504520388,الاثنين,استاذ هاني "ناي",2:00-3:00
-مرسيل,509601952,الاثنين,استاذ هاني "ناي",4:00-5:00
-وفاء,560598002,الاثنين,استاذ هاني "ناي",5:00-6:00
-محمد طارق,557466233,الثلاثاء,استاذ هاني "ناي",3:00-4:00
-وفاء,560598002,الثلاثاء,استاذ هاني "ناي",4:00-5:00
-منار الجهيمي,554876290,الثلاثاء,استاذ هاني "ناي",7:00-8:00
-هتون اجواد,504520388,الاربعاء,استاذ هاني "ناي",2:00-3:00
-مرسيل,509601952,الاربعاء,استاذ هاني "ناي",4:00-5:00
-وفاء,560598002,الاربعاء,استاذ هاني "ناي",5:00-6:00
 `;
 
 function parseSchedule() {
     const studentMap = new Map<string, StudentProfile>();
     const masterSchedule: Semester['masterSchedule'] = {};
-    const allUsers = getInitialUsers();
+    const allUsers = getLegacyUsers();
+    const now = new Date().toISOString();
 
     const lines = scheduleData.trim().split('\n').slice(1);
 
@@ -310,6 +200,9 @@ function parseSchedule() {
                 enrollmentDate: new Date().toISOString().split('T')[0],
                 enrolledIn: [],
                 paymentPlan: 'none',
+                contact: phone ? { phone, email: '' } : undefined,
+                createdAt: now,
+                updatedAt: now,
             };
             studentMap.set(studentName, student);
         }
@@ -320,14 +213,13 @@ function parseSchedule() {
         const formatTo12Hour = (timeStr: string) => {
             let [hour, minute] = timeStr.split(':').map(Number);
             
-            // All times are PM
             if (hour < 12) {
                 hour += 12;
             }
             
             const ampm = 'PM';
             let displayHour = hour > 12 ? hour - 12 : hour;
-            if (displayHour === 0) displayHour = 12; // Should not happen with PM logic
+            if (displayHour === 0) displayHour = 12;
             
             return `${displayHour}:${minute.toString().padStart(2, '0')} ${ampm}`;
         };
@@ -350,11 +242,16 @@ function parseSchedule() {
 
         let session = masterSchedule[teacherKey][day].find(s => s.id === sessionId);
         
-        const studentToAdd: SessionStudent = { id: student.id, name: student.name, attendance: null, pendingRemoval: false };
+        const studentToAdd: SessionStudent = { 
+            id: student.id!, 
+            name: student.name, 
+            attendance: null, 
+            pendingRemoval: false 
+        };
 
         if (session) {
             if (!session.students.find(s => s.id === student!.id)) {
-                 session.students.push(studentToAdd);
+                session.students.push(studentToAdd);
             }
         } else {
             session = {
@@ -381,17 +278,16 @@ function parseSchedule() {
     return { students: Array.from(studentMap.values()), masterSchedule };
 }
 
-
 const parsedData = parseSchedule();
 
 export const getInitialStudents = (): StudentProfile[] => {
     return parsedData.students;
-}
+};
 
 export const getInitialRequests = (): TeacherRequest[] => {
+    const now = new Date().toISOString();
     return [
         {
-            id: 'REQ001',
             type: 'remove-student',
             status: 'pending',
             date: '2024-05-20',
@@ -405,24 +301,174 @@ export const getInitialRequests = (): TeacherRequest[] => {
                 day: 'Saturday',
                 reason: 'Test request.',
                 semesterId: 'fall-2024'
-            }
+            },
+            createdAt: now,
+            updatedAt: now,
         },
-    ]
-}
-
+    ];
+};
 
 export const getInitialSemesters = (): Semester[] => {
-  const teacherList = [...new Set(Object.keys(parsedData.masterSchedule))];
-  return [
-    {
-      id: "fall-2024",
-      name: "Fall 2024",
-      startDate: "2024-09-01",
-      endDate: "2024-12-20",
-      teachers: teacherList,
-      masterSchedule: parsedData.masterSchedule,
-      weeklyAttendance: {},
-      incompatibilities: [],
-    },
-  ];
+    const teacherList = [...new Set(Object.keys(parsedData.masterSchedule))];
+    const now = new Date().toISOString();
+    
+    return [
+        {
+            name: "Fall 2024",
+            startDate: "2024-09-01",
+            endDate: "2024-12-20",
+            teachers: teacherList,
+            masterSchedule: parsedData.masterSchedule,
+            weeklyAttendance: {},
+            incompatibilities: [],
+            createdAt: now,
+            updatedAt: now,
+            isActive: true,
+        },
+    ];
+};
+
+// Firebase migration utilities
+export async function migrateDataToFirebase() {
+    try {
+        console.log('Starting data migration to Firebase...');
+        
+        const batch = writeBatch(db);
+        let batchCount = 0;
+        
+        // Helper function to handle batch commits
+        const commitBatch = async () => {
+            if (batchCount > 0) {
+                await batch.commit();
+                console.log(`Committed batch of ${batchCount} operations`);
+                batchCount = 0;
+            }
+        };
+
+        // Migrate Students
+        const students = getInitialStudents();
+        console.log(`Migrating ${students.length} students...`);
+        
+        for (const student of students) {
+            const studentRef = doc(collection(db, 'students'));
+            batch.set(studentRef, student);
+            batchCount++;
+            
+            if (batchCount >= 500) { // Firestore batch limit
+                await commitBatch();
+            }
+        }
+
+        // Migrate Applicants
+        const applicants = getInitialApplicants();
+        console.log(`Migrating ${applicants.length} applicants...`);
+        
+        for (const applicant of applicants) {
+            const applicantRef = doc(collection(db, 'applicants'));
+            batch.set(applicantRef, applicant);
+            batchCount++;
+            
+            if (batchCount >= 500) {
+                await commitBatch();
+            }
+        }
+
+        // Migrate Semesters
+        const semesters = getInitialSemesters();
+        console.log(`Migrating ${semesters.length} semesters...`);
+        
+        for (const semester of semesters) {
+            const semesterRef = doc(collection(db, 'semesters'));
+            batch.set(semesterRef, semester);
+            batchCount++;
+            
+            if (batchCount >= 500) {
+                await commitBatch();
+            }
+        }
+
+        // Migrate Teacher Requests
+        const requests = getInitialRequests();
+        console.log(`Migrating ${requests.length} teacher requests...`);
+        
+        for (const request of requests) {
+            const requestRef = doc(collection(db, 'teacherRequests'));
+            batch.set(requestRef, request);
+            batchCount++;
+            
+            if (batchCount >= 500) {
+                await commitBatch();
+            }
+        }
+
+        // Migrate Leaves
+        const leaves = getInitialLeaves();
+        console.log(`Migrating ${leaves.length} leaves...`);
+        
+        for (const leave of leaves) {
+            const leaveRef = doc(collection(db, 'leaves'));
+            batch.set(leaveRef, leave);
+            batchCount++;
+            
+            if (batchCount >= 500) {
+                await commitBatch();
+            }
+        }
+
+        // Migrate Payment Settings
+        const paymentSettings = getInitialPaymentSettings();
+        console.log('Migrating payment settings...');
+        
+        const settingsRef = doc(collection(db, 'settings'), 'payments');
+        batch.set(settingsRef, paymentSettings);
+        batchCount++;
+
+        // Commit final batch
+        await commitBatch();
+        
+        console.log('Data migration completed successfully!');
+        
+    } catch (error) {
+        console.error('Error migrating data to Firebase:', error);
+        throw error;
+    }
 }
+
+// Initialize app data (for development/testing)
+export async function initializeAppData() {
+    try {
+        // Check if data already exists
+        const studentsSnapshot = await getDocs(collection(db, 'students'));
+        
+        if (studentsSnapshot.empty) {
+            console.log('No existing data found. Starting migration...');
+            await migrateDataToFirebase();
+        } else {
+            console.log('Data already exists in Firebase.');
+        }
+    } catch (error) {
+        console.error('Error initializing app data:', error);
+    }
+}
+
+// Utility functions for data conversion
+export function convertLegacyStudent(legacyStudent: any): StudentProfile {
+    const now = new Date().toISOString();
+    return {
+        ...legacyStudent,
+        createdAt: legacyStudent.createdAt || now,
+        updatedAt: legacyStudent.updatedAt || now,
+    };
+}
+
+export function convertLegacyApplicant(legacyApplicant: any): Applicant {
+    const now = new Date().toISOString();
+    return {
+        ...legacyApplicant,
+        createdAt: legacyApplicant.createdAt || now,
+        updatedAt: legacyApplicant.updatedAt || now,
+    };
+}
+
+// Export for backward compatibility
+export const getInitialUsers = getLegacyUsers;

@@ -1,47 +1,26 @@
-
-
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import type { Applicant, StudentProfile, InterviewEvaluation } from "@/lib/types";
 import { useAuth } from './auth-context';
+import { useDatabase } from './database-context';
 import { addMinutes, format } from 'date-fns';
-import { getInitialApplicants } from '@/lib/data';
-
-function useLocalStorage<T>(key: string, initialValue: T[] | (() => T[])): [T[], React.Dispatch<React.SetStateAction<T[]>>] {
-    const [storedValue, setStoredValue] = useState<T[]>(() => {
-        if (typeof window === 'undefined') {
-            return Array.isArray(initialValue) ? initialValue : initialValue();
-        }
-        try {
-            const item = window.localStorage.getItem(key);
-            if (item) {
-                return JSON.parse(item);
-            }
-            const value = Array.isArray(initialValue) ? initialValue : initialValue();
-            window.localStorage.setItem(key, JSON.stringify(value));
-            return value;
-        } catch (error) {
-            console.log(error);
-            return Array.isArray(initialValue) ? initialValue : initialValue();
-        }
-    });
-
-    const setValue = (value: T[] | ((val: T[]) => T[])) => {
-        try {
-            const valueToStore = value instanceof Function ? value(storedValue) : value;
-            setStoredValue(valueToStore);
-            if (typeof window !== 'undefined') {
-                window.localStorage.setItem(key, JSON.stringify(valueToStore));
-            }
-        } catch (error) {
-            console.log(error);
-        }
-    };
-    return [storedValue, setValue];
-}
-
+import {
+  collection,
+  doc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  getDocs,
+  getDoc,
+  query,
+  orderBy,
+  onSnapshot,
+  writeBatch,
+  where,
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface ApplicantsContextType {
   applicants: Applicant[];
@@ -52,180 +31,340 @@ interface ApplicantsContextType {
   scheduleInterviews: (applicantIds: string[], details: { date: string; startTime: string; duration: number; breakTime: number; teacherIds: string[] }) => Promise<boolean>;
   evaluateApplication: (applicantId: string, evaluation: InterviewEvaluation, enroll: boolean) => Promise<boolean>;
   cancelApplication: (applicantId: string, reason: string) => Promise<boolean>;
+  getApplicantsByStatus: (status: string) => Applicant[];
+  refreshApplicants: () => Promise<void>;
+  migrateInitialApplicants: () => Promise<void>;
 }
 
 const ApplicantsContext = createContext<ApplicantsContextType | undefined>(undefined);
 
 export function ApplicantsProvider({ children }: { children: ReactNode }) {
-  const [applicants, setApplicants] = useLocalStorage<Applicant>('applicants', getInitialApplicants);
+  const [applicants, setApplicants] = useState<Applicant[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { users } = useAuth();
+  const { addStudent } = useDatabase();
 
+  // Initialize real-time listener for applicants
   useEffect(() => {
-    setLoading(false);
-  }, []);
+    const applicantsQuery = query(collection(db, 'applicants'), orderBy('applicationDate', 'desc'));
+    const unsubscribeApplicants = onSnapshot(applicantsQuery, 
+      (snapshot) => {
+        const applicantsData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Applicant));
+        setApplicants(applicantsData);
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Error listening to applicants:', error);
+        toast({
+          title: "Connection Error",
+          description: "Failed to sync applicant data. Please refresh the page.",
+          variant: "destructive"
+        });
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribeApplicants();
+  }, [toast]);
   
   const addApplicant = useCallback(async (applicantData: Omit<Applicant, 'id' | 'status' | 'applicationDate' | 'lastUpdated'>): Promise<boolean> => {
     try {
-      const newApplicant: Applicant = {
+      const now = new Date().toISOString();
+      await addDoc(collection(db, 'applicants'), {
         ...applicantData,
-        id: `APP-${Date.now()}`,
         status: 'pending-review',
-        applicationDate: new Date().toISOString(),
-        lastUpdated: new Date().toISOString(),
-      };
-      setApplicants(prev => [...prev, newApplicant]);
-      toast({ title: "Applicant Added", description: `${applicantData.name} has been added.`});
+        applicationDate: now,
+        lastUpdated: now,
+        createdAt: now,
+        updatedAt: now,
+      });
+      
+      toast({ 
+        title: "Applicant Added", 
+        description: `${applicantData.name} has been added successfully.`
+      });
       return true;
     } catch(error: any) {
-      toast({ title: "Error", description: `Failed to add applicant. ${error.message}`, variant: 'destructive'});
+      console.error('Add applicant error:', error);
+      toast({ 
+        title: "Error", 
+        description: `Failed to add applicant: ${error.message}`, 
+        variant: 'destructive'
+      });
       return false;
     }
-  }, [setApplicants, toast]);
+  }, [toast]);
 
   const updateApplicant = useCallback(async (applicantId: string, applicantData: Partial<Applicant>): Promise<boolean> => {
     try {
-        setApplicants(prev => prev.map(a => a.id === applicantId ? { ...a, ...applicantData, lastUpdated: new Date().toISOString() } : a));
-        toast({ title: "Applicant Updated", description: "Applicant details have been saved." });
-        return true;
+      await updateDoc(doc(db, 'applicants', applicantId), {
+        ...applicantData,
+        lastUpdated: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      
+      toast({ 
+        title: "Applicant Updated", 
+        description: "Applicant details have been saved successfully." 
+      });
+      return true;
     } catch (error: any) {
-        toast({ title: "Error", description: `Failed to update applicant. ${error.message}`, variant: "destructive" });
-        return false;
+      console.error('Update applicant error:', error);
+      toast({ 
+        title: "Error", 
+        description: `Failed to update applicant: ${error.message}`, 
+        variant: "destructive" 
+      });
+      return false;
     }
-  }, [setApplicants, toast]);
+  }, [toast]);
 
   const deleteApplicant = useCallback(async (applicantId: string): Promise<boolean> => {
     try {
-        setApplicants(prev => prev.filter(a => a.id !== applicantId));
-        toast({ title: "Applicant Deleted", description: "The applicant has been permanently removed." });
-        return true;
+      await deleteDoc(doc(db, 'applicants', applicantId));
+      
+      toast({ 
+        title: "Applicant Deleted", 
+        description: "The applicant has been permanently removed." 
+      });
+      return true;
     } catch (error: any) {
-        toast({ title: "Error", description: `Failed to delete applicant. ${error.message}`, variant: "destructive" });
-        return false;
+      console.error('Delete applicant error:', error);
+      toast({ 
+        title: "Error", 
+        description: `Failed to delete applicant: ${error.message}`, 
+        variant: "destructive" 
+      });
+      return false;
     }
-  }, [setApplicants, toast]);
+  }, [toast]);
 
   const scheduleInterviews = useCallback(async (
     applicantIds: string[], 
     details: { date: string; startTime: string; duration: number; breakTime: number; teacherIds: string[] }
   ): Promise<boolean> => {
-    
-    const { date, startTime, duration, breakTime, teacherIds } = details;
-
-    const interviewers = users.filter(u => teacherIds.includes(u.id));
-    if (interviewers.length === 0) {
-        toast({ title: "No Interviewers", description: "The selected teachers could not be found.", variant: "destructive" });
-        return false;
-    }
-
-    const [startHour, startMinute] = startTime.split(':').map(Number);
-    let interviewTime = new Date(date);
-    interviewTime.setHours(startHour, startMinute, 0, 0);
-
-    const totalSlotTime = duration + breakTime;
-    
-    const schedules: Record<string, Date> = {};
-    interviewers.forEach(interviewer => {
-        schedules[interviewer.id] = new Date(interviewTime.getTime());
-    });
-    
-    let applicantIndex = 0;
-    const updatedApplicants = [...applicants];
-
-    while(applicantIndex < applicantIds.length) {
-        for(const interviewer of interviewers) {
-             if(applicantIndex >= applicantIds.length) break;
-
-             const applicantId = applicantIds[applicantIndex];
-             const currentApplicantIndex = updatedApplicants.findIndex(a => a.id === applicantId);
-             
-             if (currentApplicantIndex > -1) {
-                const assignedTime = schedules[interviewer.id];
-
-                updatedApplicants[currentApplicantIndex] = {
-                    ...updatedApplicants[currentApplicantIndex],
-                    status: 'interview-scheduled',
-                    interviewDate: date,
-                    interviewTime: format(assignedTime, 'HH:mm'),
-                    interviewer: interviewer.name,
-                    lastUpdated: new Date().toISOString()
-                };
-
-                schedules[interviewer.id] = addMinutes(assignedTime, totalSlotTime);
-             }
-             applicantIndex++;
-        }
-    }
-
     try {
-        setApplicants(updatedApplicants);
-        toast({ title: "Interviews Scheduled", description: `Generated a schedule for ${applicantIds.length} applicants.` });
-        return true;
-    } catch (error: any) {
-        toast({ title: "Error", description: `Failed to schedule interviews. ${error.message}`, variant: "destructive" });
-        return false;
-    }
-  }, [applicants, setApplicants, toast, users]);
+      const { date, startTime, duration, breakTime, teacherIds } = details;
 
+      const interviewers = users.filter(u => teacherIds.includes(u.id));
+      if (interviewers.length === 0) {
+        toast({ 
+          title: "No Interviewers", 
+          description: "The selected teachers could not be found.", 
+          variant: "destructive" 
+        });
+        return false;
+      }
+
+      const [startHour, startMinute] = startTime.split(':').map(Number);
+      let interviewTime = new Date(date);
+      interviewTime.setHours(startHour, startMinute, 0, 0);
+
+      const totalSlotTime = duration + breakTime;
+      
+      const schedules: Record<string, Date> = {};
+      interviewers.forEach(interviewer => {
+        schedules[interviewer.id] = new Date(interviewTime.getTime());
+      });
+      
+      // Use batch for atomic updates
+      const batch = writeBatch(db);
+      let applicantIndex = 0;
+
+      while(applicantIndex < applicantIds.length) {
+        for(const interviewer of interviewers) {
+          if(applicantIndex >= applicantIds.length) break;
+
+          const applicantId = applicantIds[applicantIndex];
+          const assignedTime = schedules[interviewer.id];
+
+          // Update the applicant document
+          batch.update(doc(db, 'applicants', applicantId), {
+            status: 'interview-scheduled',
+            interviewDate: date,
+            interviewTime: format(assignedTime, 'HH:mm'),
+            interviewer: interviewer.name,
+            lastUpdated: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+
+          schedules[interviewer.id] = addMinutes(assignedTime, totalSlotTime);
+          applicantIndex++;
+        }
+      }
+
+      await batch.commit();
+      
+      toast({ 
+        title: "Interviews Scheduled", 
+        description: `Generated schedule for ${applicantIds.length} applicants successfully.` 
+      });
+      return true;
+    } catch (error: any) {
+      console.error('Schedule interviews error:', error);
+      toast({ 
+        title: "Error", 
+        description: `Failed to schedule interviews: ${error.message}`, 
+        variant: "destructive" 
+      });
+      return false;
+    }
+  }, [toast, users]);
 
   const evaluateApplication = useCallback(async (applicantId: string, evaluation: InterviewEvaluation, enroll: boolean): Promise<boolean> => {
     try {
-        const applicantDoc = applicants.find(a => a.id === applicantId);
-        if (!applicantDoc) throw new Error("Applicant not found");
+      const applicantDoc = applicants.find(a => a.id === applicantId);
+      if (!applicantDoc) {
+        throw new Error("Applicant not found");
+      }
 
-        const updatedApplicant: Applicant = {
-            ...applicantDoc,
-            status: evaluation.decision === 'rejected' ? 'rejected' : 'approved',
-            evaluation: evaluation,
-            lastUpdated: new Date().toISOString()
+      // Use batch for atomic operations
+      const batch = writeBatch(db);
+      
+      // Update applicant with evaluation
+      const newStatus = evaluation.decision === 'rejected' ? 'rejected' : 'approved';
+      batch.update(doc(db, 'applicants', applicantId), {
+        status: newStatus,
+        evaluation: evaluation,
+        lastUpdated: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      // If approved and should enroll, create student record
+      if (evaluation.decision === 'approved' && enroll) {
+        const studentData = {
+          name: applicantDoc.name,
+          gender: applicantDoc.gender === "male" || applicantDoc.gender === "female" ? applicantDoc.gender : undefined,
+          dob: applicantDoc.dob,
+          nationality: applicantDoc.nationality,
+          instrumentInterest: applicantDoc.instrumentInterest,
+          enrollmentDate: new Date().toISOString().split('T')[0],
+          level: 'Beginner', // Default level
+          paymentPlan: "none" as "none",
+          enrolledIn: [],
+          levelHistory: [{
+            date: new Date().toISOString(),
+            level: 'Beginner',
+            review: 'Initial enrollment from application.'
+          }],
+          status: "active" as const,
+          applicantId: applicantId, // Link to original application
         };
 
-        setApplicants(prev => prev.map(a => a.id === applicantId ? updatedApplicant : a));
+        // Add student using the database context method
+        await addStudent(studentData);
+      }
 
-        if (evaluation.decision === 'approved' && enroll) {
-            const allStudents: StudentProfile[] = JSON.parse(localStorage.getItem('students') || '[]');
-            const newStudent: StudentProfile = {
-                id: `STU-${Date.now()}`,
-                name: applicantDoc.name,
-                gender: applicantDoc.gender,
-                dob: applicantDoc.dob,
-                nationality: applicantDoc.nationality,
-                instrumentInterest: applicantDoc.instrumentInterest,
-                enrollmentDate: new Date().toISOString().split('T')[0],
-                level: 'Beginner', // Default level
-                paymentPlan: 'none',
-                enrolledIn: [],
-                levelHistory: [{
-                    date: new Date().toISOString(),
-                    level: 'Beginner',
-                    review: 'Initial enrollment from application.'
-                }],
-            };
-            localStorage.setItem('students', JSON.stringify([...allStudents, newStudent]));
-        }
+      await batch.commit();
 
-        const message = evaluation.decision === 'rejected' ? 'rejected' : (enroll ? 'approved and enrolled' : 'approved');
-        toast({ title: "Application Evaluated", description: `The application has been ${message}.` });
-        return true;
+      const message = evaluation.decision === 'rejected' ? 'rejected' : (enroll ? 'approved and enrolled' : 'approved');
+      toast({ 
+        title: "Application Evaluated", 
+        description: `The application has been ${message} successfully.` 
+      });
+      return true;
     } catch (error: any) {
-        toast({ title: "Error", description: `Failed to evaluate application. ${error.message}`, variant: "destructive" });
-        return false;
+      console.error('Evaluate application error:', error);
+      toast({ 
+        title: "Error", 
+        description: `Failed to evaluate application: ${error.message}`, 
+        variant: "destructive" 
+      });
+      return false;
     }
-  }, [applicants, setApplicants, toast]);
+  }, [applicants, toast, addStudent]);
 
   const cancelApplication = useCallback(async (applicantId: string, reason: string): Promise<boolean> => {
     try {
-        setApplicants(prev => prev.map(a => a.id === applicantId ? { ...a, status: 'cancelled', cancellationReason: reason, lastUpdated: new Date().toISOString() } : a));
-        toast({ title: "Application Cancelled", description: `The application has been cancelled.` });
-        return true;
+      await updateDoc(doc(db, 'applicants', applicantId), {
+        status: 'cancelled',
+        cancellationReason: reason,
+        lastUpdated: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      
+      toast({ 
+        title: "Application Cancelled", 
+        description: "The application has been cancelled successfully." 
+      });
+      return true;
     } catch (error: any) {
-        toast({ title: "Error", description: `Failed to cancel application. ${error.message}`, variant: "destructive" });
-        return false;
+      console.error('Cancel application error:', error);
+      toast({ 
+        title: "Error", 
+        description: `Failed to cancel application: ${error.message}`, 
+        variant: "destructive" 
+      });
+      return false;
     }
-  }, [setApplicants, toast]);
+  }, [toast]);
 
-  const value = { 
+  const getApplicantsByStatus = useCallback((status: string) => {
+    return applicants.filter(applicant => applicant.status === status);
+  }, [applicants]);
+
+  const refreshApplicants = useCallback(async () => {
+    try {
+      setLoading(true);
+      // Data will be refreshed automatically by the listener
+      setTimeout(() => setLoading(false), 1000);
+    } catch (error: any) {
+      console.error('Refresh applicants error:', error);
+      setLoading(false);
+    }
+  }, []);
+
+  const migrateInitialApplicants = useCallback(async () => {
+    try {
+      // Import the initial data function
+      const { getInitialApplicants } = await import('@/lib/data');
+      const initialApplicants = getInitialApplicants();
+      
+      // Check if applicants already exist
+      const existingApplicants = await getDocs(collection(db, 'applicants'));
+      if (existingApplicants.size > 0) {
+        toast({
+          title: "Migration Skipped",
+          description: "Applicants data already exists in Firebase.",
+        });
+        return;
+      }
+
+      const batch = writeBatch(db);
+      const now = new Date().toISOString();
+
+      initialApplicants.forEach((applicant) => {
+        const docRef = doc(collection(db, 'applicants'));
+        batch.set(docRef, {
+          ...applicant,
+          createdAt: now,
+          updatedAt: now,
+          lastUpdated: applicant.lastUpdated || now,
+        });
+      });
+
+      await batch.commit();
+      
+      toast({
+        title: "Migration Successful",
+        description: `${initialApplicants.length} applicants migrated to Firebase successfully.`,
+      });
+    } catch (error: any) {
+      console.error('Migration error:', error);
+      toast({
+        title: "Migration Failed",
+        description: `Failed to migrate applicants: ${error.message}`,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }, [toast]);
+
+  const value: ApplicantsContextType = { 
     applicants, 
     loading, 
     addApplicant,
@@ -234,6 +373,9 @@ export function ApplicantsProvider({ children }: { children: ReactNode }) {
     scheduleInterviews,
     evaluateApplication,
     cancelApplication,
+    getApplicantsByStatus,
+    refreshApplicants,
+    migrateInitialApplicants,
   };
 
   return <ApplicantsContext.Provider value={value}>{children}</ApplicantsContext.Provider>;

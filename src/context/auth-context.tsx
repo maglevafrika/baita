@@ -1,11 +1,22 @@
-
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, Role, UserInDb } from '@/lib/types';
-import { getInitialUsers } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
+import {
+  collection,
+  doc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  getDocs,
+  getDoc,
+  query,
+  orderBy,
+  onSnapshot,
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 type Theme = "light" | "dark";
 
@@ -18,17 +29,18 @@ interface AuthContextType {
   switchRole: (role: Role) => void;
   addUser: (userData: Omit<UserInDb, 'id'>) => Promise<boolean>;
   updateUser: (userId: string, userData: Partial<Omit<UserInDb, 'id'>>) => Promise<boolean>;
+  deleteUser: (userId: string) => Promise<boolean>;
   customLogoUrl: string | null;
   setCustomLogo: (url: string | null) => void;
   theme: Theme;
   setTheme: (theme: Theme) => void;
+  refreshUsers: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-
 export function AppThemeProvider({ children }: { children: React.ReactNode }) {
-  const { theme } = useAuth()
+  const { theme } = useAuth();
   
   useEffect(() => {
     if (theme === 'dark') {
@@ -38,9 +50,8 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
     }
   }, [theme]);
 
-  return <>{children}</>
+  return <>{children}</>;
 }
-
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -51,57 +62,103 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { toast } = useToast();
 
+  // Initialize Firebase listeners and local storage
   useEffect(() => {
-    try {
-      const storedUsers = localStorage.getItem('users');
-      if (storedUsers) {
-        setUsers(JSON.parse(storedUsers));
-      } else {
-        const initialUsers = getInitialUsers();
-        setUsers(initialUsers);
-        localStorage.setItem('users', JSON.stringify(initialUsers));
-      }
+    const unsubscribes: (() => void)[] = [];
 
+    // Users listener
+    const usersQuery = query(collection(db, 'users'), orderBy('name', 'asc'));
+    const unsubscribeUsers = onSnapshot(usersQuery, (snapshot) => {
+      const usersData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as UserInDb));
+      setUsers(usersData);
+    });
+    unsubscribes.push(unsubscribeUsers);
+
+    // App settings listener (for logo and theme)
+    const unsubscribeSettings = onSnapshot(doc(db, 'settings', 'app'), (snapshot) => {
+      if (snapshot.exists()) {
+        const settings = snapshot.data();
+        if (settings.customLogoUrl !== undefined) {
+          setCustomLogoUrlState(settings.customLogoUrl);
+          if (settings.customLogoUrl) {
+            localStorage.setItem('customLogoUrl', settings.customLogoUrl);
+          } else {
+            localStorage.removeItem('customLogoUrl');
+          }
+        }
+        if (settings.theme !== undefined) {
+          setThemeState(settings.theme);
+          localStorage.setItem('app-theme', settings.theme);
+        }
+      }
+      setLoading(false);
+    });
+    unsubscribes.push(unsubscribeSettings);
+
+    // Initialize from localStorage for immediate display
+    try {
       const storedUser = sessionStorage.getItem('user');
       if (storedUser) {
         setUser(JSON.parse(storedUser));
       }
+      
       const storedLogo = localStorage.getItem('customLogoUrl');
-      if(storedLogo) {
+      if (storedLogo) {
         setCustomLogoUrlState(storedLogo);
       }
-       const storedTheme = localStorage.getItem('app-theme') as Theme | null;
-       if (storedTheme) {
-         setThemeState(storedTheme);
-       }
+      
+      const storedTheme = localStorage.getItem('app-theme') as Theme | null;
+      if (storedTheme) {
+        setThemeState(storedTheme);
+      }
     } catch (error) {
       console.error("Failed to parse from storage", error);
       sessionStorage.removeItem('user');
       localStorage.removeItem('customLogoUrl');
       localStorage.removeItem('app-theme');
-      localStorage.removeItem('users');
-    } finally {
-      setLoading(false);
     }
+
+    return () => {
+      unsubscribes.forEach(unsubscribe => unsubscribe());
+    };
   }, []);
 
   const login = async (username: string): Promise<boolean> => {
-    const userInDb = users.find((u) => u.username.toLowerCase() === username.toLowerCase());
-    
-    if (userInDb) {
-      const sessionUser: User = {
-        id: userInDb.id,
-        username: userInDb.username,
-        name: userInDb.name,
-        roles: userInDb.roles,
-        activeRole: userInDb.roles[0], 
-      };
-      sessionStorage.setItem('user', JSON.stringify(sessionUser));
-      setUser(sessionUser);
-      router.push('/dashboard');
-      return true;
+    try {
+      const userInDb = users.find((u) => u.username.toLowerCase() === username.toLowerCase());
+      
+      if (userInDb) {
+        const sessionUser: User = {
+          id: userInDb.id,
+          username: userInDb.username,
+          name: userInDb.name,
+          roles: userInDb.roles,
+          activeRole: userInDb.roles[0], 
+        };
+        sessionStorage.setItem('user', JSON.stringify(sessionUser));
+        setUser(sessionUser);
+        
+        // Update last login time
+        await updateDoc(doc(db, 'users', userInDb.id), {
+          lastLogin: new Date().toISOString(),
+        });
+        
+        router.push('/dashboard');
+        return true;
+      }
+      return false;
+    } catch (error: any) {
+      console.error('Login error:', error);
+      toast({
+        title: "Login Error",
+        description: "Failed to login. Please try again.",
+        variant: "destructive",
+      });
+      return false;
     }
-    return false;
   };
 
   const logout = () => {
@@ -115,28 +172,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const updatedUser = { ...user, activeRole: role };
       sessionStorage.setItem('user', JSON.stringify(updatedUser));
       setUser(updatedUser);
-      toast({title: `Switched to ${role.replace('-', ' ')}`, description: "Your view has been updated."})
+      toast({
+        title: `Switched to ${role.replace('-', ' ')}`,
+        description: "Your view has been updated."
+      });
     }
   };
 
   const addUser = useCallback(async (userData: Omit<UserInDb, 'id'>): Promise<boolean> => {
     try {
+      // Check if username already exists
       if (users.some(u => u.username.toLowerCase() === userData.username.toLowerCase())) {
-        toast({ title: "Username Exists", description: "This username is already taken.", variant: 'destructive'});
+        toast({
+          title: "Username Exists",
+          description: "This username is already taken.",
+          variant: 'destructive'
+        });
         return false;
       }
-      const newUser: UserInDb = {
+
+      const now = new Date().toISOString();
+      await addDoc(collection(db, 'users'), {
         ...userData,
-        id: `USR-${Date.now()}`
-      };
-      const updatedUsers = [...users, newUser];
-      setUsers(updatedUsers);
-      localStorage.setItem('users', JSON.stringify(updatedUsers));
-      toast({ title: "User Added", description: `${userData.name} has been created.`});
+        createdAt: now,
+        updatedAt: now,
+        lastLogin: null,
+      });
+
+      toast({
+        title: "User Added",
+        description: `${userData.name} has been created successfully.`
+      });
       return true;
-    } catch(error: any) {
-        toast({ title: "Error", description: `Failed to add user. ${error.message}`, variant: 'destructive'});
-        return false;
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: `Failed to add user: ${error.message}`,
+        variant: 'destructive'
+      });
+      return false;
     }
   }, [users, toast]);
 
@@ -144,24 +218,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       // Check for username collision if username is being changed
       if (userData.username && users.some(u => u.id !== userId && u.username.toLowerCase() === userData.username!.toLowerCase())) {
-         toast({ title: "Username Exists", description: "This username is already taken.", variant: 'destructive'});
+        toast({
+          title: "Username Exists",
+          description: "This username is already taken.",
+          variant: 'destructive'
+        });
         return false;
       }
 
-      const updatedUsers = users.map(u => u.id === userId ? { ...u, ...userData } : u);
-      setUsers(updatedUsers);
-      localStorage.setItem('users', JSON.stringify(updatedUsers));
+      await updateDoc(doc(db, 'users', userId), {
+        ...userData,
+        updatedAt: new Date().toISOString(),
+      });
       
       // If the currently logged-in user is the one being updated, update their session data too
-      if(user && user.id === userId) {
-        const newSessionUser = updatedUsers.find(u => u.id === userId);
-        if (newSessionUser) {
-           const sessionUser: User = {
-            id: newSessionUser.id,
-            username: newSessionUser.username,
-            name: newSessionUser.name,
-            roles: newSessionUser.roles,
-            activeRole: newSessionUser.roles.includes(user.activeRole) ? user.activeRole : newSessionUser.roles[0],
+      if (user && user.id === userId) {
+        const updatedUserInDb = users.find(u => u.id === userId);
+        if (updatedUserInDb) {
+          const sessionUser: User = {
+            id: updatedUserInDb.id,
+            username: userData.username || updatedUserInDb.username,
+            name: userData.name || updatedUserInDb.name,
+            roles: userData.roles || updatedUserInDb.roles,
+            activeRole: (userData.roles && !userData.roles.includes(user.activeRole)) 
+              ? userData.roles[0] 
+              : user.activeRole,
           };
           sessionStorage.setItem('user', JSON.stringify(sessionUser));
           setUser(sessionUser);
@@ -169,31 +250,117 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       if (!userData.password) {
-        toast({ title: "User Updated", description: "User details have been saved." });
+        toast({
+          title: "User Updated",
+          description: "User details have been saved successfully."
+        });
       }
 
       return true;
     } catch (error: any) {
-        toast({ title: "Error", description: `Failed to update user. ${error.message}`, variant: "destructive" });
-        return false;
+      toast({
+        title: "Error",
+        description: `Failed to update user: ${error.message}`,
+        variant: "destructive"
+      });
+      return false;
     }
   }, [users, toast, user]);
 
-  const setCustomLogo = (url: string | null) => {
-    setCustomLogoUrlState(url);
-    if (url) {
-      localStorage.setItem('customLogoUrl', url);
-    } else {
-      localStorage.removeItem('customLogoUrl');
+  const deleteUser = useCallback(async (userId: string): Promise<boolean> => {
+    try {
+      // Prevent deleting the currently logged-in user
+      if (user && user.id === userId) {
+        toast({
+          title: "Cannot Delete",
+          description: "You cannot delete your own account while logged in.",
+          variant: 'destructive'
+        });
+        return false;
+      }
+
+      await deleteDoc(doc(db, 'users', userId));
+      
+      toast({
+        title: "User Deleted",
+        description: "User has been deleted successfully."
+      });
+      return true;
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: `Failed to delete user: ${error.message}`,
+        variant: "destructive"
+      });
+      return false;
     }
-  }
+  }, [user, toast]);
 
-  const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme);
-    localStorage.setItem('app-theme', newTheme);
-  }
+  const setCustomLogo = async (url: string | null) => {
+    try {
+      await updateDoc(doc(db, 'settings', 'app'), {
+        customLogoUrl: url,
+        updatedAt: new Date().toISOString(),
+      });
+      
+      // Local state will be updated by the listener
+      toast({
+        title: "Logo Updated",
+        description: url ? "Custom logo has been set." : "Logo has been reset to default."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: `Failed to update logo: ${error.message}`,
+        variant: "destructive"
+      });
+    }
+  };
 
-  const value = { user, users, loading, login, logout, switchRole, customLogoUrl, setCustomLogo, theme, setTheme, addUser, updateUser };
+  const setTheme = async (newTheme: Theme) => {
+    try {
+      await updateDoc(doc(db, 'settings', 'app'), {
+        theme: newTheme,
+        updatedAt: new Date().toISOString(),
+      });
+      
+      // Local state will be updated by the listener
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: `Failed to update theme: ${error.message}`,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const refreshUsers = async () => {
+    try {
+      setLoading(true);
+      // Data will be refreshed automatically by the listeners
+      setTimeout(() => setLoading(false), 1000);
+    } catch (error: any) {
+      console.error('Refresh error:', error);
+      setLoading(false);
+    }
+  };
+
+  const value = {
+    user,
+    users,
+    loading,
+    login,
+    logout,
+    switchRole,
+    customLogoUrl,
+    setCustomLogo,
+    theme,
+    setTheme,
+    addUser,
+    updateUser,
+    deleteUser,
+    refreshUsers,
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

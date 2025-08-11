@@ -1,5 +1,4 @@
-
-
+// src/lib/types.ts
 export type Role = "admin" | "teacher" | "upper-management" | "high-level-dashboard";
 
 export interface User {
@@ -10,11 +9,25 @@ export interface User {
   activeRole: Role;
 }
 
+// Firebase-compatible user profile (stored in Firestore users collection)
+export interface UserProfile {
+  uid: string;
+  email: string;
+  username: string;
+  displayName: string;
+  name: string; // Keep for backward compatibility
+  roles: Role[];
+  createdAt: string;
+  lastLogin: string;
+  updatedAt: string;
+}
+
+// Legacy interface for backward compatibility
 export interface UserInDb {
   id: string;
-  username:string;
+  username: string;
   name: string;
-  password?: string;
+  password?: string; // Not stored in Firebase
   roles: Role[];
 }
 
@@ -28,13 +41,12 @@ export interface InterviewEvaluation {
         tuningLevel: number;
         generalTalent: number;
         psychologicalBalance: number;
-    },
+    };
     generalScore: number;
 }
 
-
 export interface Applicant {
-    id: string;
+    id?: string; // Optional for Firestore auto-generated IDs
     name: string;
     gender: 'male' | 'female' | 'other';
     dob: string; // YYYY-MM-DD
@@ -44,7 +56,7 @@ export interface Applicant {
         email: string;
     };
     instrumentInterest: string;
-    previousExperience: string; // text area
+    previousExperience: string;
     status: 'pending-review' | 'interview-scheduled' | 'evaluated' | 're-evaluation' | 'approved' | 'rejected' | 'cancelled' | 'archived';
     applicationDate: string; // ISO String
     lastUpdated: string; // ISO String
@@ -52,27 +64,29 @@ export interface Applicant {
     interviewTime?: string; // HH:MM
     interviewer?: string;
     evaluation?: InterviewEvaluation;
-    evaluationNotes?: string; // Deprecated, replaced by evaluation
+    evaluationNotes?: string; // Deprecated
     cancellationReason?: string;
+    createdAt: string; // For Firebase
+    updatedAt: string; // For Firebase
 }
 
 export interface StudentProfile {
-  id: string;
+  id?: string; // Optional for Firestore auto-generated IDs
   idPrefix?: string;
   name: string;
   gender?: 'male' | 'female';
   username?: string;
-  dob?: string; // Stored as a string e.g. "YYYY-MM-DD"
+  dob?: string;
   nationality?: string;
   instrumentInterest?: string;
-  enrollmentDate?: string; // Stored as a string e.g. "YYYY-MM-DD"
+  enrollmentDate?: string;
   level: string;
   levelHistory?: LevelChange[];
   evaluations?: Evaluation[];
   grades?: Grade[];
   paymentPlan: 'monthly' | 'quarterly' | 'yearly' | 'none';
   installments?: Installment[];
-  subscriptionStartDate?: string; // Stored as a string e.g. "YYYY-MM-DD"
+  subscriptionStartDate?: string;
   preferredPayDay?: number;
   dueDateChangeHistory?: DueDateChange[];
   avatar?: string;
@@ -90,62 +104,71 @@ export interface StudentProfile {
     date: string;
     reason: string;
   };
+  createdAt: string; // For Firebase
+  updatedAt: string; // For Firebase
 }
 
 export interface LevelChange {
-  date: string; // Stored as a string e.g. "YYYY-MM-DD"
+  date: string;
   level: string;
   review: string;
 }
 
 export interface Evaluation {
-  id: string;
-  date: string; // Stored as a string e.g. "YYYY-MM-DD"
+  id?: string;
+  date: string;
   evaluator: string;
   criteria: { name: string; score: number }[];
   notes: string;
+  createdAt: string;
 }
 
 export interface Grade {
-  id: string;
+  id?: string;
+  studentId: string; // Reference to student
   subject: string;
   type: 'test' | 'assignment' | 'quiz';
   title: string;
   score: number;
   maxScore: number;
-  date: string; // Stored as a string e.g. "YYYY-MM-DD"
+  date: string;
   attachment?: {
     name: string;
     type: string;
-    dataUrl: string;
+    url: string; // Firebase Storage URL instead of dataUrl
   };
   notes?: string;
+  teacherId: string; // Who assigned the grade
+  semesterId: string; // Which semester
+  createdAt: string;
 }
 
 export type PaymentPlanType = 'monthly' | 'quarterly' | 'yearly';
 export type PaymentMethod = 'visa' | 'mada' | 'cash' | 'transfer';
 
-
 export interface PaymentSettings {
   monthly: number;
   quarterly: number;
   yearly: number;
+  updatedAt: string;
 }
 
-
 export interface Installment {
-  id: string;
-  dueDate: string; // Stored as a string e.g. "YYYY-MM-DD"
+  id?: string;
+  studentId: string; // Reference to student
+  dueDate: string;
   amount: number;
   status: 'paid' | 'unpaid' | 'overdue';
-  paymentDate?: string; // Stored as a string e.g. "YYYY-MM-DD"
-  gracePeriodUntil?: string; // Stored as a string e.g. "YYYY-MM-DD"
+  paymentDate?: string;
+  gracePeriodUntil?: string;
   invoiceNumber?: string;
   paymentMethod?: PaymentMethod;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface DueDateChange {
-  date: string; // Stored as a string e.g. "YYYY-MM-DD"
+  date: string;
   oldDay: number;
   newDay: number;
 }
@@ -159,10 +182,10 @@ export interface SessionStudent {
 }
 
 export interface Session {
-  id: string; // e.g., "Saturday-1300"
-  time: string; // e.g., "1:00 PM"
-  endTime?: string; // e.g., "3:00 PM"
-  duration: number; // in hours
+  id: string;
+  time: string;
+  endTime?: string;
+  duration: number;
   students: SessionStudent[];
   specialization: string;
   type: 'practical' | 'theory';
@@ -174,9 +197,8 @@ export interface ProcessedSession extends Session {
   startRow: number;
 }
 
-
 export interface WeeklyAttendance {
-  [sessionId: string]: { // e.g., "Saturday-13"
+  [sessionId: string]: {
     [studentId: string]: {
       status: 'present' | 'absent' | 'late' | 'excused';
       note?: string;
@@ -185,52 +207,58 @@ export interface WeeklyAttendance {
 }
 
 export interface Incompatibility {
-    id: string;
+    id?: string;
     type: 'teacher-student' | 'student-student';
     person1Id: string;
     person1Name: string;
     person2Id: string;
     person2Name: string;
     reason: string;
+    semesterId: string;
+    createdAt: string;
 }
 
 export interface Leave {
-    id: string;
+    id?: string;
     type: 'student' | 'teacher';
-    personId: string; // either studentId or teacherId(userId)
+    personId: string;
     personName: string;
-    startDate: string; // YYYY-MM-DD
-    endDate: string; // YYYY-MM-DD
+    startDate: string;
+    endDate: string;
     reason: string;
     status: 'pending' | 'approved' | 'denied';
+    createdAt: string;
+    updatedAt: string;
 }
-
 
 export interface TeacherSchedule {
   [day: string]: Session[];
 }
 
 export interface Semester {
-  id: string;
+  id?: string;
   name: string;
   startDate: string;
   endDate: string;
   teachers: string[];
   masterSchedule: {
-    [teacherName: string]: TeacherSchedule
-  }
+    [teacherName: string]: TeacherSchedule;
+  };
   weeklyAttendance: {
-    [weekStartDate: string]: { // YYYY-MM-DD format
-      [teacherName:string]: WeeklyAttendance
-    }
-  },
+    [weekStartDate: string]: {
+      [teacherName: string]: WeeklyAttendance;
+    };
+  };
   incompatibilities?: Incompatibility[];
+  createdAt: string;
+  updatedAt: string;
+  isActive?: boolean; // To mark current semester
 }
 
 export type TeacherRequestType = 'remove-student' | 'change-time' | 'add-student';
 
 export interface TeacherRequest {
-  id: string;
+  id?: string;
   type: TeacherRequestType;
   status: 'pending' | 'approved' | 'denied';
   date: string;
@@ -245,9 +273,17 @@ export interface TeacherRequest {
     reason: string;
     semesterId: string;
   };
+  createdAt: string;
+  updatedAt: string;
 }
 
+// Firebase-specific types
+export interface FirebaseTimestamp {
+  seconds: number;
+  nanoseconds: number;
+}
 
+// For data migration and seeding
 export interface AppData {
   semesters: Semester[];
   students: StudentProfile[];

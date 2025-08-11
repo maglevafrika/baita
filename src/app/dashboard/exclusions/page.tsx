@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -35,7 +34,7 @@ function AddExclusionDialog({ semester, onExclusionAdded }: { semester: Semester
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const { updateSemester, students } = useDatabase();
+  const { addIncompatibility, students } = useDatabase();
   const { users } = useAuth();
   const teachers = users.filter(u => u.roles.includes('teacher'));
 
@@ -55,33 +54,48 @@ function AddExclusionDialog({ semester, onExclusionAdded }: { semester: Semester
   }
 
   const onSubmit = async (data: ExclusionFormValues) => {
+    if (!semester.id) {
+      toast({
+        title: "Error",
+        description: "Semester ID is missing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
     
-    const newIncompatibility: Incompatibility = {
-      id: `INC-${Date.now()}`,
-      type: data.type,
-      person1Id: data.person1Id,
-      person1Name: getPersonName(data.person1Id),
-      person2Id: data.person2Id,
-      person2Name: getPersonName(data.person2Id),
-      reason: data.reason,
-    };
+    try {
+      const newIncompatibility: Omit<Incompatibility, 'id' | 'createdAt'> = {
+        type: data.type,
+        person1Id: data.person1Id,
+        person1Name: getPersonName(data.person1Id),
+        person2Id: data.person2Id,
+        person2Name: getPersonName(data.person2Id),
+        reason: data.reason,
+        semesterId: semester.id,
+      };
 
-    const updatedIncompatibilities = [...(semester.incompatibilities || []), newIncompatibility];
-    const success = await updateSemester(semester.id, { incompatibilities: updatedIncompatibilities });
-    
-    setIsLoading(false);
-
-    if (success) {
+      await addIncompatibility(newIncompatibility);
+      
       toast({ title: "Exclusion Rule Added", description: "The new rule has been saved." });
       onExclusionAdded();
       setIsOpen(false);
       form.reset();
+    } catch (error) {
+      console.error('Error adding incompatibility:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add exclusion rule. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const person1Options = ruleType === 'teacher-student' ? teachers : students;
-  const person2Options = students;
+  const person1Options = ruleType === 'teacher-student' ? teachers : students.filter(s => s.status !== 'deleted');
+  const person2Options = students.filter(s => s.status !== 'deleted');
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -114,13 +128,13 @@ function AddExclusionDialog({ semester, onExclusionAdded }: { semester: Semester
                     <FormField control={form.control} name="person1Id" render={({ field }) => (
                         <FormItem><FormLabel>{ruleType === 'teacher-student' ? 'Teacher' : 'Student 1'}</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger></FormControl>
-                            <SelectContent><ScrollArea className="h-48">{person1Options.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</ScrollArea></SelectContent>
+                            <SelectContent><ScrollArea className="h-48">{person1Options.map(p => <SelectItem key={p.id} value={p.id!}>{p.name}</SelectItem>)}</ScrollArea></SelectContent>
                         </Select><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="person2Id" render={({ field }) => (
                         <FormItem><FormLabel>Student</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger></FormControl>
-                            <SelectContent><ScrollArea className="h-48">{person2Options.filter(s => s.id !== person1Id).map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</ScrollArea></SelectContent>
+                            <SelectContent><ScrollArea className="h-48">{person2Options.filter(s => s.id !== person1Id).map(p => <SelectItem key={p.id} value={p.id!}>{p.name}</SelectItem>)}</ScrollArea></SelectContent>
                         </Select><FormMessage /></FormItem>
                     )} />
                 </div>
@@ -145,49 +159,49 @@ function AddExclusionDialog({ semester, onExclusionAdded }: { semester: Semester
   );
 }
 
-
 // Main Page Component
 export default function ExclusionsPage() {
-  const { semesters, loading: dbLoading, updateSemester, addListener, removeListener } = useDatabase();
+  const { semesters, incompatibilities, loading: dbLoading, deleteIncompatibility } = useDatabase();
   const { toast } = useToast();
   const [selectedSemesterId, setSelectedSemesterId] = useState<string | null>(null);
-  const [semestersState, setSemestersState] = useState(semesters);
-
-  useEffect(() => {
-    setSemestersState(semesters);
-    const id = addListener(setSemestersState);
-    return () => removeListener(id);
-  }, [semesters, addListener, removeListener]);
   
   const selectedSemester = useMemo(() => {
-    return semestersState.find(s => s.id === selectedSemesterId);
-  }, [semestersState, selectedSemesterId]);
+    return semesters.find(s => s.id === selectedSemesterId);
+  }, [semesters, selectedSemesterId]);
+
+  // Get incompatibilities for the selected semester
+  const selectedSemesterIncompatibilities = useMemo(() => {
+    if (!selectedSemesterId) return [];
+    return incompatibilities.filter(inc => inc.semesterId === selectedSemesterId);
+  }, [incompatibilities, selectedSemesterId]);
 
   useEffect(() => {
-    if (!selectedSemesterId && semestersState.length > 0) {
-      setSelectedSemesterId(semestersState[0].id);
+    if (!selectedSemesterId && semesters.length > 0) {
+      setSelectedSemesterId(semesters[0].id || null);
     }
-  }, [semestersState, selectedSemesterId]);
+  }, [semesters, selectedSemesterId]);
 
   const handleDeleteExclusion = async (exclusionId: string) => {
-    if (!selectedSemester) return;
-
-    const updatedExclusions = selectedSemester.incompatibilities?.filter(ex => ex.id !== exclusionId) || [];
-    const success = await updateSemester(selectedSemester.id, { incompatibilities: updatedExclusions });
-    
-    if(success) {
+    try {
+      await deleteIncompatibility(exclusionId);
       toast({ title: "Exclusion Removed", description: "The rule has been successfully deleted." });
+    } catch (error) {
+      console.error('Error deleting incompatibility:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete exclusion rule. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
   const onExclusionAdded = () => {
-    // The listener will automatically update the state
+    // The real-time listener will automatically update the incompatibilities
   };
   
   const getIcon = (type: Incompatibility['type']) => {
     return type === 'teacher-student' ? <User className="h-4 w-4 text-muted-foreground" /> : <Users className="h-4 w-4 text-muted-foreground" />;
   }
-
 
   return (
     <div className="space-y-6">
@@ -215,7 +229,7 @@ export default function ExclusionsPage() {
                 <SelectValue placeholder="Select a semester" />
               </SelectTrigger>
               <SelectContent>
-                {semestersState.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                {semesters.map(s => <SelectItem key={s.id} value={s.id!}>{s.name}</SelectItem>)}
               </SelectContent>
             </Select>
           )}
@@ -228,9 +242,9 @@ export default function ExclusionsPage() {
             <CardTitle>Exclusion List for {selectedSemester.name}</CardTitle>
           </CardHeader>
           <CardContent>
-            {selectedSemester.incompatibilities && selectedSemester.incompatibilities.length > 0 ? (
+            {selectedSemesterIncompatibilities && selectedSemesterIncompatibilities.length > 0 ? (
                 <ul className="space-y-3">
-                    {selectedSemester.incompatibilities.map(ex => (
+                    {selectedSemesterIncompatibilities.map(ex => (
                         <li key={ex.id} className="flex justify-between items-center p-3 border rounded-md bg-muted/50">
                            <div className="flex-grow">
                              <div className="flex items-center gap-4 mb-2">
@@ -241,7 +255,7 @@ export default function ExclusionsPage() {
                              </div>
                              <p className="text-sm text-muted-foreground pl-8">{ex.reason}</p>
                            </div>
-                           <Button variant="destructive" size="icon" onClick={() => handleDeleteExclusion(ex.id)}>
+                           <Button variant="destructive" size="icon" onClick={() => handleDeleteExclusion(ex.id!)}>
                                <Trash2 className="h-4 w-4" />
                            </Button>
                         </li>
@@ -253,7 +267,6 @@ export default function ExclusionsPage() {
           </CardContent>
         </Card>
       )}
-
     </div>
   );
 }

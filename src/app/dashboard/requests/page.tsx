@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -28,52 +26,108 @@ import { format } from "date-fns";
 import { useDatabase } from '@/context/database-context';
 
 export default function RequestsPage() {
-  const { requests, loading, updateRequest, updateSemester, updateStudent, getSemester, getStudent } = useDatabase();
+  const { 
+    teacherRequests, 
+    loading, 
+    updateTeacherRequest, 
+    updateSemester, 
+    updateStudent, 
+    semesters, 
+    students 
+  } = useDatabase();
   const { toast } = useToast();
 
-  const handleAction = async (request: TeacherRequest, action: "approved" | "denied") => {
-    
-    try {
-        if (action === 'approved' && request.type === 'remove-student') {
-            const semester = await getSemester(request.details.semesterId);
-            const student = await getStudent(request.details.studentId);
-            
-            if (!semester || !student) throw new Error("Could not find semester or student for this request.");
-
-            const masterSchedule = JSON.parse(JSON.stringify(semester.masterSchedule));
-            const daySessions = masterSchedule[request.teacherName]?.[request.details.day];
-            if (!daySessions) throw new Error("Day sessions not found for teacher.");
-            
-            const sessionIndex = daySessions.findIndex((s: Session) => s.id === request.details.sessionId);
-            if (sessionIndex === -1) throw new Error("Session not found in schedule.");
-            
-            // Remove the student from the session
-            masterSchedule[request.teacherName][request.details.day][sessionIndex].students = 
-                daySessions[sessionIndex].students.filter((s: SessionStudent) => s.id !== request.details.studentId);
-            
-            // Also remove the student from their own `enrolledIn` list
-            const updatedEnrolledIn = student.enrolledIn.filter(e => !(e.semesterId === request.details.semesterId && e.sessionId === request.details.sessionId));
-            
-            await updateStudent(student.id, { enrolledIn: updatedEnrolledIn });
-            await updateSemester(semester.id, { masterSchedule });
-        }
-        
-        await updateRequest(request.id, { status: action });
-        
-        toast({
-          title: `Request ${action}`,
-          description: `The request has been successfully ${action}.`,
-        });
-    } catch (error: any) {
-        console.error(`Error updating request ${request.id}: `, error);
-        toast({
-            title: `Failed to ${action} request`,
-            description: `There was a problem updating the request. ${error.message}`,
-            variant: "destructive",
-        });
-    }
+  // Helper function to get semester by ID
+  const getSemester = (semesterId: string): Semester | null => {
+    return semesters.find(s => s.id === semesterId) || null;
   };
 
+  // Helper function to get student by ID
+  const getStudent = (studentId: string): StudentProfile | null => {
+    return students.find(s => s.id === studentId) || null;
+  };
+
+  const handleAction = async (request: TeacherRequest, action: "approved" | "denied") => {
+    if (!request.id) {
+      toast({
+        title: "Error",
+        description: "Request ID is missing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      if (action === 'approved' && request.type === 'remove-student') {
+        const semester = getSemester(request.details.semesterId);
+        const student = getStudent(request.details.studentId);
+        
+        if (!semester || !student) {
+          throw new Error("Could not find semester or student for this request.");
+        }
+
+        if (!semester.id) {
+          throw new Error("Semester ID is missing.");
+        }
+
+        if (!student.id) {
+          throw new Error("Student ID is missing.");
+        }
+
+        // Create a deep copy of the master schedule
+        const masterSchedule = JSON.parse(JSON.stringify(semester.masterSchedule));
+        
+        // Check if teacher exists in schedule
+        if (!masterSchedule[request.teacherName]) {
+          throw new Error(`Teacher ${request.teacherName} not found in schedule.`);
+        }
+
+        // Check if day exists for teacher
+        const daySessions = masterSchedule[request.teacherName]?.[request.details.day];
+        if (!daySessions) {
+          throw new Error(`No sessions found for ${request.teacherName} on ${request.details.day}.`);
+        }
+        
+        // Find the session
+        const sessionIndex = daySessions.findIndex((s: Session) => s.id === request.details.sessionId);
+        if (sessionIndex === -1) {
+          throw new Error(`Session ${request.details.sessionId} not found in schedule.`);
+        }
+        
+        // Remove the student from the session
+        const updatedStudents = daySessions[sessionIndex].students.filter(
+          (s: SessionStudent) => s.id !== request.details.studentId
+        );
+        
+        masterSchedule[request.teacherName][request.details.day][sessionIndex].students = updatedStudents;
+        
+        // Remove the enrollment from student's enrolledIn list
+        const updatedEnrolledIn = student.enrolledIn.filter(e => 
+          !(e.semesterId === request.details.semesterId && e.sessionId === request.details.sessionId)
+        );
+        
+        // Update both student and semester
+        await updateStudent(student.id, { enrolledIn: updatedEnrolledIn });
+        await updateSemester(semester.id, { masterSchedule });
+      }
+      
+      // Update the request status
+      await updateTeacherRequest(request.id, { status: action });
+      
+      toast({
+        title: `Request ${action}`,
+        description: `The request has been successfully ${action}.`,
+      });
+
+    } catch (error: any) {
+      console.error(`Error updating request ${request.id}: `, error);
+      toast({
+        title: `Failed to ${action} request`,
+        description: `There was a problem updating the request. ${error.message}`,
+        variant: "destructive",
+      });
+    }
+  };
 
   const getRequestTitle = (request: TeacherRequest) => {
     switch (request.type) {
@@ -88,7 +142,24 @@ export default function RequestsPage() {
     }
   };
 
-  const pendingRequests = requests.filter((r) => r.status === "pending");
+  const getBadgeVariant = (type: TeacherRequest['type']): "default" | "secondary" | "destructive" => {
+    switch (type) {
+      case 'remove-student':
+        return 'destructive';
+      case 'add-student':
+        return 'default';
+      case 'change-time':
+        return 'secondary';
+      default:
+        return 'secondary';
+    }
+  };
+
+  const formatRequestType = (type: TeacherRequest['type']): string => {
+    return type.replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+  };
+
+  const pendingRequests = teacherRequests.filter((r) => r.status === "pending");
 
   return (
     <div className="space-y-6">
@@ -115,12 +186,12 @@ export default function RequestsPage() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {pendingRequests.map((request) => (
-            <Card key={request.id} className="flex flex-col">
+            <Card key={request.id || `${request.teacherId}-${request.date}`} className="flex flex-col">
               <CardHeader>
                 <CardTitle className="flex justify-between items-start">
-                  <span>{getRequestTitle(request)}</span>
-                  <Badge variant={request.type === 'remove-student' ? 'destructive' : 'secondary'}>
-                    {request.type.replace("-", " ")}
+                  <span className="text-base">{getRequestTitle(request)}</span>
+                  <Badge variant={getBadgeVariant(request.type)}>
+                    {formatRequestType(request.type)}
                   </Badge>
                 </CardTitle>
                 <CardDescription>
@@ -157,24 +228,28 @@ export default function RequestsPage() {
                     <p className="text-muted-foreground">Class Time</p>
                   </div>
                 </div>
-                <div className="border-l-2 pl-3 ml-1.5">
-                    <p className="font-semibold text-muted-foreground">Reason:</p>
-                    <p className="italic">"{request.details.reason}"</p>
+                <div className="border-l-2 pl-3 ml-1.5 border-muted">
+                  <p className="font-semibold text-muted-foreground mb-1">Reason:</p>
+                  <p className="italic">"{request.details.reason}"</p>
                 </div>
               </CardContent>
               <CardFooter className="flex gap-2">
                 <Button
                   className="w-full"
                   onClick={() => handleAction(request, "approved")}
+                  disabled={loading}
                 >
-                  <CheckCircle /> Approve
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Approve
                 </Button>
                 <Button
                   variant="destructive"
                   className="w-full"
                   onClick={() => handleAction(request, "denied")}
+                  disabled={loading}
                 >
-                  <XCircle /> Deny
+                  <XCircle className="w-4 h-4 mr-2" />
+                  Deny
                 </Button>
               </CardFooter>
             </Card>

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useForm } from "react-hook-form";
@@ -60,29 +59,36 @@ export function AddStudentForm({ onSuccess }: { onSuccess: () => void }) {
   async function onSubmit(data: StudentFormValues) {
     setIsLoading(true);
     
-      const newStudent: Omit<StudentProfile, 'id'> = {
+    try {
+      const newStudent: Omit<StudentProfile, 'id' | 'createdAt' | 'updatedAt'> = {
         name: data.name,
         level: data.level,
         gender: data.gender,
         dob: format(data.dob, 'yyyy-MM-dd'),
         nationality: data.nationality,
         instrumentInterest: data.instrumentInterest,
-        enrollmentDate: new Date().toISOString().split('T')[0], // a YYYY-MM-DD
+        enrollmentDate: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
         enrolledIn: [],
         paymentPlan: 'none',
         contact: data.contact,
+        status: 'active', // Add default status as required by StudentProfile
       };
 
-      const success = await addStudent(newStudent);
-
+      await addStudent(newStudent);
+      
+      // Reset form on success
+      form.reset();
+      onSuccess();
+    } catch (error) {
+      console.error('Error adding student:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add student. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-      if (success) {
-        toast({
-            title: "Student Added",
-            description: `${data.name} has been successfully added to the system.`,
-        });
-        onSuccess();
-      }
+    }
   }
 
   return (

@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,7 +51,7 @@ const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onU
   const timeSlots = Array.from({ length: 12 }, (_, i) => `${i + 10}:00`); // 10 AM to 9 PM (for slots ending at 10 PM)
   const { user } = useAuth();
   const { toast } = useToast();
-  const { updateSemester, addRequest, updateStudent, students: allStudents } = useDatabase();
+  const { updateSemester, addTeacherRequest, updateStudent, students: allStudents } = useDatabase();
   
   const [sessionToCreate, setSessionToCreate] = useState<{day: string, time: string} | null>(null);
 
@@ -68,10 +66,13 @@ const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onU
       
       updatedWeeklyAttendance[weekStartDate][teacherName][sessionId][studentId] = { status };
       
-      const success = await updateSemester(semester.id, { weeklyAttendance: updatedWeeklyAttendance });
-      if(success) {
+      try {
+          await updateSemester(semester.id || "", { weeklyAttendance: updatedWeeklyAttendance });
           toast({ title: "Attendance updated", description: `Marked as ${status}.`});
           onUpdate();
+      } catch (error) {
+          console.error('Error updating attendance:', error);
+          toast({ title: "Error", description: "Failed to update attendance", variant: "destructive" });
       }
   };
 
@@ -82,7 +83,7 @@ const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onU
     try {
         if (isTeacher) {
             // Teacher requests removal
-            const request: Omit<TeacherRequest, 'id'> = {
+            const request: Omit<TeacherRequest, 'id' | 'createdAt' | 'updatedAt'> = {
                 type: 'remove-student',
                 status: 'pending',
                 date: new Date().toISOString(),
@@ -95,24 +96,22 @@ const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onU
                     sessionTime: session.time,
                     day: session.day,
                     reason: 'Teacher requested removal from schedule view.',
-                    semesterId: semester.id
+                    semesterId: semester.id || ""
                 }
             };
             
-            const reqSuccess = await addRequest(request);
+            await addTeacherRequest(request);
 
-            if (reqSuccess) {
-                // Also mark student as pending removal in master schedule
-                const masterSchedule = JSON.parse(JSON.stringify(semester.masterSchedule));
-                const daySessions = masterSchedule[teacherName]?.[session.day];
-                const sessionIndex = daySessions.findIndex((s: Session) => s.id === session.id);
-                if (sessionIndex > -1) {
-                    const studentIndex = daySessions[sessionIndex].students.findIndex((s: SessionStudent) => s.id === student.id);
-                    if (studentIndex > -1) {
-                        masterSchedule[teacherName][session.day][sessionIndex].students[studentIndex].pendingRemoval = true;
-                         await updateSemester(semester.id, { masterSchedule });
-                         toast({ title: "Removal Requested", description: `Request to remove ${student.name} has been sent for approval.` });
-                    }
+            // Also mark student as pending removal in master schedule
+            const masterSchedule = JSON.parse(JSON.stringify(semester.masterSchedule));
+            const daySessions = masterSchedule[teacherName]?.[session.day];
+            const sessionIndex = daySessions.findIndex((s: Session) => s.id === session.id);
+            if (sessionIndex > -1) {
+                const studentIndex = daySessions[sessionIndex].students.findIndex((s: SessionStudent) => s.id === student.id);
+                if (studentIndex > -1) {
+                    masterSchedule[teacherName][session.day][sessionIndex].students[studentIndex].pendingRemoval = true;
+                     await updateSemester(semester.id || "", { masterSchedule });
+                     toast({ title: "Removal Requested", description: `Request to remove ${student.name} has been sent for approval.` });
                 }
             }
         } else { // Admin directly removes
@@ -130,12 +129,10 @@ const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onU
 
             const updatedEnrolledIn = studentProfile.enrolledIn.filter(e => !(e.semesterId === semester.id && e.sessionId === session.id));
             
-            const studentUpdateSuccess = await updateStudent(student.id, { enrolledIn: updatedEnrolledIn });
-            const semesterUpdateSuccess = await updateSemester(semester.id, { masterSchedule });
+            await updateStudent(student.id, { enrolledIn: updatedEnrolledIn });
+            await updateSemester(semester.id || "", { masterSchedule });
 
-            if (studentUpdateSuccess && semesterUpdateSuccess) {
-              toast({ title: "Student Removed", description: `${student.name} has been removed from the session.` });
-            }
+            toast({ title: "Student Removed", description: `${student.name} has been removed from the session.` });
         }
         onUpdate();
     } catch (error: any) {
@@ -296,7 +293,7 @@ const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onU
 
 export default function DashboardPage() {
     const { user, users } = useAuth();
-    const { semesters, students, leaves, loading: dbLoading, addListener, removeListener } = useDatabase();
+    const { semesters, students, leaves, loading: dbLoading } = useDatabase();
     const isAdmin = user?.activeRole === 'admin';
     const isMobile = useIsMobile();
 
@@ -328,14 +325,12 @@ export default function DashboardPage() {
     const [semestersState, setSemestersState] = useState(semesters);
      useEffect(() => {
         setSemestersState(semesters);
-        const id = addListener(setSemestersState);
-        return () => removeListener(id);
-    }, [semesters, addListener, removeListener]);
+    }, [semesters]);
 
     useEffect(() => {
         if (semestersState.length > 0 && !selectedSemesterId) {
             const activeSemester = semestersState.find(s => isWithinInterval(new Date(), {start: new Date(s.startDate), end: new Date(s.endDate)})) || semestersState[0];
-            setSelectedSemesterId(activeSemester.id);
+            setSelectedSemesterId(activeSemester.id || null);
         }
     }, [semestersState, selectedSemesterId]);
 
@@ -515,12 +510,12 @@ export default function DashboardPage() {
                         <>
                             <div className="w-full xl:w-auto flex items-center gap-2">
                                 <BarChart3 className="w-5 h-5 text-muted-foreground" />
-                                <Select value={selectedSemesterId ?? ""} onValueChange={setSelectedSemesterId}>
+                                <Select value={selectedSemesterId || ""} onValueChange={setSelectedSemesterId}>
                                   <SelectTrigger className="w-full xl:w-[180px]">
                                     <SelectValue placeholder="Select a semester" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {semestersState.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                    {semestersState.map(s => <SelectItem key={s.id} value={s.id || ""}>{s.name}</SelectItem>)}
                                   </SelectContent>
                                 </Select>
                             </div>
@@ -531,7 +526,7 @@ export default function DashboardPage() {
                                     <SelectValue placeholder="Select a teacher" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {availableTeachers.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}
+                                    {availableTeachers.map(t => <SelectItem key={t.id} value={t.name || ""}>{t.name}</SelectItem>)}
                                   </SelectContent>
                                 </Select>
                             </div>
