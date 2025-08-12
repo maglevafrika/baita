@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -22,7 +21,7 @@ import ReCAPTCHA from "react-google-recaptcha";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState("Rs@!2325"); // Set default password
   const [isLoading, setIsLoading] = useState(false);
   const [isCaptchaVerified, setIsCaptchaVerified] = useState(false);
   const { login, user, loading } = useAuth();
@@ -51,19 +50,29 @@ export default function LoginPage() {
         });
         return;
     }
+    
     setIsLoading(true);
-    // Note: The provided login function only uses username.
-    // For a real app, you would pass the password to the login function.
-    const success = await login(username);
-    if (!success) {
+    
+    try {
+      // Pass both username and password to the login function
+      const success = await login(username, password);
+      if (!success) {
+        toast({
+          title: "Login Failed",
+          description: "Invalid username or password. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Login error:', error);
       toast({
-        title: "Login Failed",
-        description: "Invalid username or password. Please try again.",
+        title: "Login Error",
+        description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
-    // On success, the AuthContext will handle the redirect via the useEffect hook.
-    setIsLoading(false);
   };
 
   if (loading || user) {
@@ -81,7 +90,7 @@ export default function LoginPage() {
           <AppLogo />
           <div>
             <CardTitle className="font-headline text-2xl">Welcome to Bait Al Oud</CardTitle>
-            <CardDescription>Enter your username to sign in to your account.</CardDescription>
+            <CardDescription>Enter your credentials to sign in to your account.</CardDescription>
           </div>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -102,9 +111,10 @@ export default function LoginPage() {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="••••••••"
+                  placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  required
                 />
               </div>
             </div>
