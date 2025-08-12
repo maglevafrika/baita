@@ -16,7 +16,15 @@ import {
   orderBy,
   onSnapshot,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { 
+  signInWithEmailAndPassword, 
+  signOut, 
+  createUserWithEmailAndPassword,
+  updatePassword,
+  User as FirebaseUser,
+  onAuthStateChanged
+} from 'firebase/auth';
+import { db, auth } from '@/lib/firebase';
 
 type Theme = "light" | "dark";
 
@@ -24,7 +32,7 @@ interface AuthContextType {
   user: User | null;
   users: UserInDb[];
   loading: boolean;
-  login: (username: string) => Promise<boolean>;
+  login: (emailOrUsername: string, password: string) => Promise<boolean>;
   logout: () => void;
   switchRole: (role: Role) => void;
   addUser: (userData: Omit<UserInDb, 'id'>) => Promise<boolean>;
@@ -38,6 +46,18 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Standard password for all users
+const STANDARD_PASSWORD = 'Rs@!2325';
+
+// User mapping for backward compatibility
+const USER_EMAIL_MAPPING: Record<string, string> = {
+  'admin1': 'admin1@gmail.com',
+  'admin': 'admin@gmail.com',
+  'teacher1': 'teacher1@gmail.com',
+  'teacher2': 'teacher2@gmail.com',
+  // Add more mappings as needed
+};
 
 export function AppThemeProvider({ children }: { children: React.ReactNode }) {
   const { theme } = useAuth();
@@ -59,12 +79,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [customLogoUrl, setCustomLogoUrlState] = useState<string | null>(null);
   const [theme, setThemeState] = useState<Theme>('light');
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const router = useRouter();
   const { toast } = useToast();
 
-  // Initialize Firebase listeners and local storage
+  // Helper function to get email from username
+  const getEmailFromUsername = (username: string): string => {
+    return USER_EMAIL_MAPPING[username.toLowerCase()] || `${username.toLowerCase()}@gmail.com`;
+  };
+
+  // Helper function to get username from email
+  const getUsernameFromEmail = (email: string): string => {
+    // First check if it's in our mapping
+    for (const [username, mappedEmail] of Object.entries(USER_EMAIL_MAPPING)) {
+      if (mappedEmail === email) {
+        return username;
+      }
+    }
+    // Otherwise, extract username from email
+    return email.split('@')[0];
+  };
+
+  // Initialize Firebase Auth listener and other listeners
   useEffect(() => {
     const unsubscribes: (() => void)[] = [];
+
+    // Firebase Auth state listener
+    const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
+      setFirebaseUser(firebaseUser);
+    });
+    unsubscribes.push(unsubscribeAuth);
 
     // Users listener
     const usersQuery = query(collection(db, 'users'), orderBy('name', 'asc'));
@@ -126,8 +170,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const login = async (username: string): Promise<boolean> => {
-    try {
+  // Sync user data when Firebase user changes
+  useEffect(() => {
+    if (firebaseUser && users.length > 0) {
+      const username = getUsernameFromEmail(firebaseUser.email || '');
       const userInDb = users.find((u) => u.username.toLowerCase() === username.toLowerCase());
       
       if (userInDb) {
@@ -140,31 +186,117 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
         sessionStorage.setItem('user', JSON.stringify(sessionUser));
         setUser(sessionUser);
+      }
+    } else if (!firebaseUser) {
+      setUser(null);
+      sessionStorage.removeItem('user');
+    }
+  }, [firebaseUser, users]);
+
+  const login = async (emailOrUsername: string, password: string = STANDARD_PASSWORD): Promise<boolean> => {
+    try {
+      // Determine if input is email or username
+      let email = emailOrUsername;
+      if (!emailOrUsername.includes('@')) {
+        // It's a username, convert to email
+        email = getEmailFromUsername(emailOrUsername);
+      }
+
+      // Check if user exists in our database
+      const username = getUsernameFromEmail(email);
+      const userInDb = users.find((u) => u.username.toLowerCase() === username.toLowerCase());
+      
+      if (!userInDb) {
+        toast({
+          title: "User Not Found",
+          description: "No user found with this username.",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      // Try Firebase authentication
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
         
         // Update last login time
         await updateDoc(doc(db, 'users', userInDb.id), {
           lastLogin: new Date().toISOString(),
         });
         
+        toast({
+          title: "Login Successful",
+          description: `Welcome back, ${userInDb.name}!`,
+        });
+        
         router.push('/dashboard');
         return true;
+      } catch (firebaseError: any) {
+        // If Firebase auth fails, check if it's because user doesn't exist in Firebase
+        if (firebaseError.code === 'auth/user-not-found') {
+          // Auto-create Firebase user with standard password
+          try {
+            await createUserWithEmailAndPassword(auth, email, STANDARD_PASSWORD);
+            toast({
+              title: "Account Created",
+              description: "Your Firebase account has been created. Please try logging in again.",
+            });
+            return false; // Ask user to try again
+          } catch (createError: any) {
+            console.error('Failed to create Firebase user:', createError);
+            toast({
+              title: "Account Creation Failed",
+              description: "Failed to create your account. Please contact admin.",
+              variant: "destructive",
+            });
+            return false;
+          }
+        } else if (firebaseError.code === 'auth/wrong-password') {
+          toast({
+            title: "Invalid Password",
+            description: "The password you entered is incorrect.",
+            variant: "destructive",
+          });
+          return false;
+        } else {
+          console.error('Firebase auth error:', firebaseError);
+          toast({
+            title: "Login Failed",
+            description: firebaseError.message || "Authentication failed. Please try again.",
+            variant: "destructive",
+          });
+          return false;
+        }
       }
-      return false;
     } catch (error: any) {
       console.error('Login error:', error);
       toast({
         title: "Login Error",
-        description: "Failed to login. Please try again.",
+        description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
       return false;
     }
   };
 
-  const logout = () => {
-    sessionStorage.removeItem('user');
-    setUser(null);
-    router.push('/');
+  const logout = async () => {
+    try {
+      await signOut(auth);
+      sessionStorage.removeItem('user');
+      setUser(null);
+      router.push('/');
+      toast({
+        title: "Logged Out",
+        description: "You have been successfully logged out.",
+      });
+    } catch (error: any) {
+      console.error('Logout error:', error);
+      toast({
+        title: "Logout Error",
+        description: "Failed to logout. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const switchRole = (role: Role) => {
@@ -191,17 +323,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return false;
       }
 
+      // Create Firebase user
+      const email = getEmailFromUsername(userData.username);
+      try {
+        await createUserWithEmailAndPassword(auth, email, STANDARD_PASSWORD);
+      } catch (firebaseError: any) {
+        if (firebaseError.code !== 'auth/email-already-in-use') {
+          throw firebaseError;
+        }
+        // Email already exists in Firebase, continue with Firestore creation
+      }
+
       const now = new Date().toISOString();
-      await addDoc(collection(db, 'users'), {
+      const newUserData: any = {
         ...userData,
+        email, // Store the email in Firestore for reference
         createdAt: now,
         updatedAt: now,
         lastLogin: null,
-      });
+      };
+      
+      await addDoc(collection(db, 'users'), newUserData);
 
       toast({
         title: "User Added",
-        description: `${userData.name} has been created successfully.`
+        description: `${userData.name} has been created successfully with standard password.`
       });
       return true;
     } catch (error: any) {
@@ -226,8 +372,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return false;
       }
 
+      // Prepare update data with email if username changed
+      let updateData: any = { ...userData };
+      if (userData.username) {
+        updateData.email = getEmailFromUsername(userData.username);
+      }
+
       await updateDoc(doc(db, 'users', userId), {
-        ...userData,
+        ...updateData,
         updatedAt: new Date().toISOString(),
       });
       
@@ -249,12 +401,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
       
-      if (!userData.password) {
-        toast({
-          title: "User Updated",
-          description: "User details have been saved successfully."
-        });
-      }
+      toast({
+        title: "User Updated",
+        description: "User details have been saved successfully."
+      });
 
       return true;
     } catch (error: any) {
@@ -303,7 +453,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updatedAt: new Date().toISOString(),
       });
       
-      // Local state will be updated by the listener
       toast({
         title: "Logo Updated",
         description: url ? "Custom logo has been set." : "Logo has been reset to default."
@@ -323,8 +472,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         theme: newTheme,
         updatedAt: new Date().toISOString(),
       });
-      
-      // Local state will be updated by the listener
     } catch (error: any) {
       toast({
         title: "Error",
@@ -337,7 +484,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshUsers = async () => {
     try {
       setLoading(true);
-      // Data will be refreshed automatically by the listeners
       setTimeout(() => setLoading(false), 1000);
     } catch (error: any) {
       console.error('Refresh error:', error);
