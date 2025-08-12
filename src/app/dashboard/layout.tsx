@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect } from "react";
@@ -10,6 +9,7 @@ import { DashboardNav } from "@/components/dashboard-nav";
 import { UserNav } from "@/components/user-nav";
 import { DatabaseProvider } from "@/context/database-context";
 import { ApplicantsProvider } from "@/context/applicants-context";
+import { useAutoMigration } from "@/hooks/use-auto-migration";
 
 import {
   Sidebar,
@@ -20,19 +20,37 @@ import {
 } from "@/components/ui/sidebar";
 
 function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { isInitialized, isLoading: migrationLoading } = useAutoMigration();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!authLoading && !user) {
       router.replace("/");
     }
-  }, [user, loading, router]);
+  }, [user, authLoading, router]);
 
-  if (loading || !user) {
+  // Show auth loading first
+  if (authLoading || !user) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Then show migration loading if needed
+  if (migrationLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Initializing application data...</p>
+          <p className="text-xs text-muted-foreground mt-2">This may take a few moments on first load</p>
+        </div>
       </div>
     );
   }
