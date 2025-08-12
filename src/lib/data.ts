@@ -135,6 +135,32 @@ export const getInitialPaymentSettings = (): PaymentSettings => ({
     updatedAt: new Date().toISOString(),
 });
 
+/**
+ * Recursively removes undefined values from an object
+ * Firebase doesn't accept undefined values, so we need to clean the data
+ */
+function removeUndefinedValues(obj: any): any {
+    if (obj === null || obj === undefined) {
+        return null;
+    }
+    
+    if (Array.isArray(obj)) {
+        return obj.map(removeUndefinedValues).filter(item => item !== undefined);
+    }
+    
+    if (typeof obj === 'object') {
+        const cleaned: any = {};
+        for (const [key, value] of Object.entries(obj)) {
+            if (value !== undefined) {
+                cleaned[key] = removeUndefinedValues(value);
+            }
+        }
+        return cleaned;
+    }
+    
+    return obj;
+}
+
 // Schedule parsing remains the same
 const scheduleData = `
 اسم الطالب,رقم الجوال,اليوم,اسم المدرس,الوقت
@@ -193,6 +219,16 @@ function parseSchedule() {
         let student = studentMap.get(studentName);
         if (!student) {
             const studentId = `STU${(studentMap.size + 1).toString().padStart(3, '0')}`;
+            
+            // Fix: Handle undefined contact properly
+            let contactInfo = null;
+            if (phone && phone.trim() !== '') {
+                contactInfo = { 
+                    phone: phone.trim(), 
+                    email: '' 
+                };
+            }
+            
             student = {
                 id: studentId,
                 name: studentName,
@@ -200,7 +236,8 @@ function parseSchedule() {
                 enrollmentDate: new Date().toISOString().split('T')[0],
                 enrolledIn: [],
                 paymentPlan: 'none',
-                contact: phone ? { phone, email: '' } : undefined,
+                // Use conditional spreading to only include contact if it exists
+                ...(contactInfo && { contact: contactInfo }),
                 createdAt: now,
                 updatedAt: now,
             };
@@ -328,7 +365,7 @@ export const getInitialSemesters = (): Semester[] => {
     ];
 };
 
-// Firebase migration utilities
+// Updated Firebase migration utilities with data cleaning
 export async function migrateDataToFirebase() {
     try {
         console.log('Starting data migration to Firebase...');
@@ -351,7 +388,9 @@ export async function migrateDataToFirebase() {
         
         for (const student of students) {
             const studentRef = doc(collection(db, 'students'));
-            batch.set(studentRef, student);
+            // Clean the data before setting it to remove undefined values
+            const cleanStudent = removeUndefinedValues(student);
+            batch.set(studentRef, cleanStudent);
             batchCount++;
             
             if (batchCount >= 500) { // Firestore batch limit
@@ -365,7 +404,8 @@ export async function migrateDataToFirebase() {
         
         for (const applicant of applicants) {
             const applicantRef = doc(collection(db, 'applicants'));
-            batch.set(applicantRef, applicant);
+            const cleanApplicant = removeUndefinedValues(applicant);
+            batch.set(applicantRef, cleanApplicant);
             batchCount++;
             
             if (batchCount >= 500) {
@@ -379,7 +419,8 @@ export async function migrateDataToFirebase() {
         
         for (const semester of semesters) {
             const semesterRef = doc(collection(db, 'semesters'));
-            batch.set(semesterRef, semester);
+            const cleanSemester = removeUndefinedValues(semester);
+            batch.set(semesterRef, cleanSemester);
             batchCount++;
             
             if (batchCount >= 500) {
@@ -393,7 +434,8 @@ export async function migrateDataToFirebase() {
         
         for (const request of requests) {
             const requestRef = doc(collection(db, 'teacherRequests'));
-            batch.set(requestRef, request);
+            const cleanRequest = removeUndefinedValues(request);
+            batch.set(requestRef, cleanRequest);
             batchCount++;
             
             if (batchCount >= 500) {
@@ -407,7 +449,8 @@ export async function migrateDataToFirebase() {
         
         for (const leave of leaves) {
             const leaveRef = doc(collection(db, 'leaves'));
-            batch.set(leaveRef, leave);
+            const cleanLeave = removeUndefinedValues(leave);
+            batch.set(leaveRef, cleanLeave);
             batchCount++;
             
             if (batchCount >= 500) {
@@ -420,7 +463,8 @@ export async function migrateDataToFirebase() {
         console.log('Migrating payment settings...');
         
         const settingsRef = doc(collection(db, 'settings'), 'payments');
-        batch.set(settingsRef, paymentSettings);
+        const cleanSettings = removeUndefinedValues(paymentSettings);
+        batch.set(settingsRef, cleanSettings);
         batchCount++;
 
         // Commit final batch
