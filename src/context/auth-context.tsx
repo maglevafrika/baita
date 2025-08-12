@@ -53,9 +53,7 @@ const STANDARD_PASSWORD = 'Rs@!2325';
 // User mapping for backward compatibility
 const USER_EMAIL_MAPPING: Record<string, string> = {
   'admin1': 'admin1@gmail.com',
-  'admin': 'admin@gmail.com',
-  'teacher1': 'teacher1@gmail.com',
-  'teacher2': 'teacher2@gmail.com',
+  
   // Add more mappings as needed
 };
 
