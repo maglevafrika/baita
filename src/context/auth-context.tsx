@@ -53,7 +53,6 @@ const STANDARD_PASSWORD = 'Rs@!2325';
 // User mapping for backward compatibility
 const USER_EMAIL_MAPPING: Record<string, string> = {
   'admin1': 'admin1@gmail.com',
-  
   // Add more mappings as needed
 };
 
@@ -78,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [customLogoUrl, setCustomLogoUrlState] = useState<string | null>(null);
   const [theme, setThemeState] = useState<Theme>('light');
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [usersLoaded, setUsersLoaded] = useState(false); // Add this to track when users are loaded
   const router = useRouter();
   const { toast } = useToast();
 
@@ -104,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Firebase Auth state listener
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
+      console.log('Firebase auth state changed:', firebaseUser?.email);
       setFirebaseUser(firebaseUser);
     });
     unsubscribes.push(unsubscribeAuth);
@@ -115,7 +116,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         id: doc.id,
         ...doc.data()
       } as UserInDb));
+      console.log('Users loaded from Firestore:', usersData.length);
       setUsers(usersData);
+      setUsersLoaded(true); // Mark users as loaded
     });
     unsubscribes.push(unsubscribeUsers);
 
@@ -168,11 +171,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Sync user data when Firebase user changes
+  // Sync user data when Firebase user changes - FIXED VERSION
   useEffect(() => {
-    if (firebaseUser && users.length > 0) {
+    console.log('Syncing user data:', { 
+      firebaseUser: firebaseUser?.email, 
+      usersLoaded, 
+      usersCount: users.length 
+    });
+
+    if (firebaseUser && usersLoaded) {
       const username = getUsernameFromEmail(firebaseUser.email || '');
+      console.log('Looking for username:', username);
+      
       const userInDb = users.find((u) => u.username.toLowerCase() === username.toLowerCase());
+      console.log('Found user in DB:', userInDb ? userInDb.username : 'not found');
       
       if (userInDb) {
         const sessionUser: User = {
@@ -182,16 +194,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           roles: userInDb.roles,
           activeRole: userInDb.roles[0], 
         };
+        console.log('Setting session user:', sessionUser);
         sessionStorage.setItem('user', JSON.stringify(sessionUser));
         setUser(sessionUser);
+      } else {
+        console.warn('User not found in Firestore database:', username);
+        // Don't automatically sign out - let the user know what's wrong
+        toast({
+          title: "User Profile Not Found",
+          description: "Your account exists but user profile is missing. Please contact admin.",
+          variant: "destructive",
+        });
       }
-    } else if (!firebaseUser) {
+    } else if (!firebaseUser && usersLoaded) {
+      console.log('No firebase user, clearing session');
       setUser(null);
       sessionStorage.removeItem('user');
     }
-  }, [firebaseUser, users]);
+  }, [firebaseUser, users, usersLoaded, toast]);
 
   const login = async (emailOrUsername: string, password: string = STANDARD_PASSWORD): Promise<boolean> => {
+    console.log('Login attempt:', emailOrUsername);
     try {
       // Determine if input is email or username
       let email = emailOrUsername;
@@ -200,14 +223,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email = getEmailFromUsername(emailOrUsername);
       }
 
-      // Check if user exists in our database
+      console.log('Converted to email:', email);
+
+      // Check if user exists in our database FIRST
       const username = getUsernameFromEmail(email);
       const userInDb = users.find((u) => u.username.toLowerCase() === username.toLowerCase());
+      
+      console.log('User lookup:', { username, userInDb: userInDb ? userInDb.username : 'not found' });
       
       if (!userInDb) {
         toast({
           title: "User Not Found",
-          description: "No user found with this username.",
+          description: "No user found with this username in our system.",
           variant: "destructive",
         });
         return false;
@@ -215,7 +242,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Try Firebase authentication
       try {
-        await signInWithEmailAndPassword(auth, email, password);
+        console.log('Attempting Firebase auth...');
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        console.log('Firebase auth successful:', userCredential.user.email);
         
         // Update last login time
         await updateDoc(doc(db, 'users', userInDb.id), {
@@ -227,13 +256,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           description: `Welcome back, ${userInDb.name}!`,
         });
         
-        router.push('/dashboard');
+        // The user state will be set by the useEffect above
+        // Wait a bit for the auth state to propagate
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 100);
+        
         return true;
+        
       } catch (firebaseError: any) {
+        console.error('Firebase auth error:', firebaseError);
+        
         // If Firebase auth fails, check if it's because user doesn't exist in Firebase
         if (firebaseError.code === 'auth/user-not-found') {
           // Auto-create Firebase user with standard password
           try {
+            console.log('Creating Firebase user...');
             await createUserWithEmailAndPassword(auth, email, STANDARD_PASSWORD);
             toast({
               title: "Account Created",
@@ -256,8 +294,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             variant: "destructive",
           });
           return false;
+        } else if (firebaseError.code === 'auth/invalid-credential') {
+          toast({
+            title: "Invalid Credentials",
+            description: "The email or password you entered is incorrect.",
+            variant: "destructive",
+          });
+          return false;
         } else {
-          console.error('Firebase auth error:', firebaseError);
           toast({
             title: "Login Failed",
             description: firebaseError.message || "Authentication failed. Please try again.",
