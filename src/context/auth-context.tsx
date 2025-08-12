@@ -43,6 +43,7 @@ interface AuthContextType {
   theme: Theme;
   setTheme: (theme: Theme) => void;
   refreshUsers: () => Promise<void>;
+  createAdminUser: () => Promise<void>; // Add this line
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -98,6 +99,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return email.split('@')[0];
   };
 
+  // Add this to your AuthProvider (temporary) - for creating missing admin user
+  const createAdminUser = async () => {
+    try {
+      await addDoc(collection(db, 'users'), {
+        username: 'admin1',
+        name: 'Administrator',
+        roles: ['admin'],
+        email: 'admin1@gmail.com',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        lastLogin: null,
+      });
+      console.log('Admin user created');
+      toast({
+        title: "Admin User Created",
+        description: "Admin user has been created successfully.",
+      });
+    } catch (error: any) {
+      console.error('Error creating admin user:', error);
+      toast({
+        title: "Error",
+        description: `Failed to create admin user: ${error.message}`,
+        variant: "destructive",
+      });
+    }
+  };
+
   // Initialize Firebase Auth listener and other listeners
   useEffect(() => {
     const unsubscribes: (() => void)[] = [];
@@ -119,6 +147,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('Users loaded from Firestore:', usersData.length);
       setUsers(usersData);
       setUsersLoaded(true); // Mark users as loaded
+      
+      // Auto-create admin user if no users exist
+      if (usersData.length === 0) {
+        console.log('No users found, creating admin user...');
+        createAdminUser();
+      }
     });
     unsubscribes.push(unsubscribeUsers);
 
@@ -548,6 +582,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     updateUser,
     deleteUser,
     refreshUsers,
+    createAdminUser, // Add this line
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
