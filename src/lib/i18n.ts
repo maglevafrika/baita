@@ -68,18 +68,8 @@ const resources = {
           tue: "Tue",
           wed: "Wed",
           thu: "Thu"
-        },
-        attendanceUpdated: "Attendance updated",
-        markedAs: "Marked as {{status}}",
-        failedToUpdateAttendance: "Failed to update attendance",
-        removalRequested: "Removal Requested",
-        removalRequestSent: "Request to remove {{name}} has been sent for approval.",
-        studentRemoved: "Student Removed",
-        studentRemovedFromSession: "{{name}} has been removed from the session",
-        failedToProcessRemoval: "Failed to process removal. {{message}}",
-        importSchedule: "Import Schedule",
-        importScheduleDesc: "Functionality to bulk-import students from a CSV file coming soon",
-        importFormPlaceholder: "Import form will be here"
+          
+        }
       },
       actions: {
         enrollStudent: "Enroll Student",
@@ -196,18 +186,8 @@ const resources = {
           tue: "ثلاثاء",
           wed: "أربعاء",
           thu: "خميس"
-        },
-        attendanceUpdated: "تم تحديث الحضور",
-        markedAs: "تم التسجيل كـ {{status}}",
-        failedToUpdateAttendance: "فشل في تحديث الحضور",
-        removalRequested: "تم طلب الإزالة",
-        removalRequestSent: "تم إرسال طلب إزالة {{name}} للموافقة",
-        studentRemoved: "تم إزالة الطالب",
-        studentRemovedFromSession: "تم إزالة {{name}} من الجلسة",
-        failedToProcessRemoval: "فشل في معالجة الإزالة. {{message}}",
-        importSchedule: "استيراد الجدول",
-        importScheduleDesc: "وظيفة الاستيراد المجمع للطلاب من ملف CSV قريباً",
-        importFormPlaceholder: "نموذج الاستيراد سيكون هنا"
+          
+        }
       },
       actions: {
         enrollStudent: "تسجيل طالب",
@@ -274,7 +254,21 @@ i18n
     },
     interpolation: {
       escapeValue: false
+    },
+    react: {
+      bindI18n: 'languageChanged',
+      bindI18nStore: '',
+      transEmptyNodeValue: '',
+      transSupportBasicHtmlNodes: true,
+      transKeepBasicHtmlNodesFor: ['br', 'strong', 'i'],
+      useSuspense: true
     }
   });
+
+// Add RTL direction support
+i18n.on('languageChanged', (lng) => {
+  document.documentElement.dir = lng === 'ar' ? 'rtl' : 'ltr';
+  document.documentElement.lang = lng;
+});
 
 export default i18n;

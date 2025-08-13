@@ -154,9 +154,9 @@ const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onU
   };
 
   const formatTimeForDisplay = (time: string) => {
-      const date = new Date(`1970-01-01T${time}:00`);
-      return date.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
-  }
+  const date = new Date(`1970-01-01T${time}:00`);
+  return date.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
+}
 
   const filteredSessions = useMemo(() => {
     if (dayFilter.toLowerCase() === 'all') return processedSessions;
