@@ -11,6 +11,7 @@ import {
   updateDoc,
   deleteDoc,
   getDocs,
+  setDoc,
   getDoc,
   query,
   orderBy,
@@ -523,39 +524,82 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, toast]);
 
   const setCustomLogo = async (url: string | null) => {
-    try {
-      await updateDoc(doc(db, 'settings', 'app'), {
+  try {
+    const settingsRef = doc(db, 'settings', 'app');
+    
+    // Check if document exists first
+    const docSnapshot = await getDoc(settingsRef);
+    
+    if (docSnapshot.exists()) {
+      // Document exists, update it
+      await updateDoc(settingsRef, {
         customLogoUrl: url,
         updatedAt: new Date().toISOString(),
       });
-      
-      toast({
-        title: "Logo Updated",
-        description: url ? "Custom logo has been set." : "Logo has been reset to default."
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: `Failed to update logo: ${error.message}`,
-        variant: "destructive"
+    } else {
+      // Document doesn't exist, create it with setDoc
+      await setDoc(settingsRef, {
+        customLogoUrl: url,
+        theme: theme, // Include current theme
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
     }
-  };
+    
+    toast({
+      title: "Logo Updated",
+      description: url ? "Custom logo has been set." : "Logo has been reset to default."
+    });
+  } catch (error: any) {
+    console.error('Logo update error:', error);
+    toast({
+      title: "Error",
+      description: `Failed to update logo: ${error.message}`,
+      variant: "destructive"
+    });
+  }
+};
 
-  const setTheme = async (newTheme: Theme) => {
-    try {
-      await updateDoc(doc(db, 'settings', 'app'), {
+const setTheme = async (newTheme: Theme) => {
+  try {
+    const settingsRef = doc(db, 'settings', 'app');
+    
+    // Check if document exists first
+    const docSnapshot = await getDoc(settingsRef);
+    
+    if (docSnapshot.exists()) {
+      // Document exists, update it
+      await updateDoc(settingsRef, {
         theme: newTheme,
         updatedAt: new Date().toISOString(),
       });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: `Failed to update theme: ${error.message}`,
-        variant: "destructive"
+    } else {
+      // Document doesn't exist, create it with setDoc
+      await setDoc(settingsRef, {
+        theme: newTheme,
+        customLogoUrl: customLogoUrl, // Include current logo
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
     }
-  };
+    
+    // Update local state immediately for better UX
+    setThemeState(newTheme);
+    localStorage.setItem('app-theme', newTheme);
+    
+    toast({
+      title: "Theme Updated",
+      description: `Theme switched to ${newTheme} mode.`
+    });
+  } catch (error: any) {
+    console.error('Theme update error:', error);
+    toast({
+      title: "Error",
+      description: `Failed to update theme: ${error.message}`,
+      variant: "destructive"
+    });
+  }
+};
 
   const refreshUsers = async () => {
     try {
