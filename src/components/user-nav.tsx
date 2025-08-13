@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -37,20 +36,67 @@ export function UserNav() {
     return nameParts[0].slice(0, 2);
   };
 
-  const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
-  }
+  const toggleTheme = async () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    await setTheme(newTheme);
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleSettings = () => {
+    // Add your settings navigation logic here
+    console.log("Settings clicked");
+  };
+
+  const handleLanguages = () => {
+    // Add your language switching logic here
+    console.log("Languages clicked");
+  };
 
   return (
     <>
     <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="h-8 w-8"><Printer /></Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8"><Settings /></Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8"><Languages /></Button>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-8 w-8" 
+          onClick={handlePrint}
+          title="Print"
+        >
+          <Printer className="h-4 w-4" />
+        </Button>
         
-        <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8">
-            <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-8 w-8" 
+          onClick={handleSettings}
+          title="Settings"
+        >
+          <Settings className="h-4 w-4" />
+        </Button>
+        
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-8 w-8" 
+          onClick={handleLanguages}
+          title="Languages"
+        >
+          <Languages className="h-4 w-4" />
+        </Button>
+        
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={toggleTheme} 
+          className="h-8 w-8 relative"
+          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+        >
+            <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+            <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
             <span className="sr-only">Toggle theme</span>
         </Button>
 
