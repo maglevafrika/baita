@@ -97,13 +97,16 @@ export default function ReportsPage() {
 
     // 3. Applicant Data
     const applicantData = useMemo(() => {
-        const counts = applicants.reduce((acc, applicant) => {
-            acc[applicant.status] = (acc[applicant.status] || 0) + 1;
-            return acc;
-        }, {} as Record<string, number>);
-
-        return Object.entries(counts).map(([name, value]) => ({ name: name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), count: value }));
-    }, [applicants]);
+    if (!Array.isArray(applicants)) return []; // safeguard
+    const counts = applicants.reduce((acc, applicant) => {
+        acc[applicant.status] = (acc[applicant.status] || 0) + 1;
+        return acc;
+    }, {} as Record<string, number>);
+    return Object.entries(counts).map(([name, value]) => ({
+        name: name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        count: value
+    }));
+}, [applicants]);
 
     // 4. Gender Data
     const genderData = useMemo(() => {
@@ -146,24 +149,22 @@ export default function ReportsPage() {
 
     // 6. Teacher Workload Data
     const teacherWorkloadData = useMemo(() => {
-        if (!semesters.length) return [];
-        const activeSemester = semesters[0];
-        const { masterSchedule } = activeSemester;
-
-        return Object.entries(masterSchedule).map(([teacherName, schedule]) => {
-            const workload: { [day: string]: number } = {
-                saturday: 0, sunday: 0, monday: 0, tuesday: 0, wednesday: 0, thursday: 0
-            };
-            Object.entries(schedule).forEach(([day, sessions]) => {
-                const totalHours = sessions.reduce((acc, session) => acc + session.duration, 0);
-                const dayKey = day.toLowerCase();
-                if(dayKey in workload) {
-                    workload[dayKey] = totalHours;
-                }
-            });
-            return { name: teacherName, ...workload };
+    if (!Array.isArray(semesters) || !semesters.length || !semesters[0]?.masterSchedule) return [];
+    const { masterSchedule } = semesters[0];
+    return Object.entries(masterSchedule).map(([teacherName, schedule]) => {
+        const workload: { [day: string]: number } = {
+            saturday: 0, sunday: 0, monday: 0, tuesday: 0, wednesday: 0, thursday: 0
+        };
+        Object.entries(schedule || {}).forEach(([day, sessions]) => {
+            const totalHours = Array.isArray(sessions)
+                ? sessions.reduce((acc, session) => acc + session.duration, 0)
+                : 0;
+            const dayKey = day.toLowerCase();
+            if (dayKey in workload) workload[dayKey] = totalHours;
         });
-    }, [semesters]);
+        return { name: teacherName, ...workload };
+    });
+}, [semesters]);
 
     // 7. Expected Revenue
     const expectedRevenueData = useMemo(() => {
