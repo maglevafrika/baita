@@ -25,10 +25,8 @@ export default function RootLayout({
         <AuthProvider>
           <AppThemeProvider>
             <I18nextProvider>
-              <>
-                <Toaster />
-                {children}
-              </>
+              <Toaster />
+              {children}
             </I18nextProvider>
           </AppThemeProvider>
         </AuthProvider>
