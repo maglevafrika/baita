@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { AuthProvider, AppThemeProvider } from '@/context/auth-context';
 import { Toaster } from '@/components/ui/toaster';
+import { I18nextProvider } from './src/app/i18n-provider';
 
 export const metadata: Metadata = {
   title: 'Bait Al Oud',
@@ -23,8 +24,10 @@ export default function RootLayout({
       <body className="font-body antialiased">
         <AuthProvider>
           <AppThemeProvider>
-            <Toaster />
-            {children}
+            <I18nextProvider>
+              <Toaster />
+              {children}
+            </I18nextProvider>
           </AppThemeProvider>
         </AuthProvider>
       </body>

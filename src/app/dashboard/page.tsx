@@ -21,6 +21,7 @@ import { Calendar as CalendarIcon } from "lucide-react";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { addDays, format, startOfWeek, isWithinInterval } from 'date-fns';
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useTranslation } from 'react-i18next';
 
 // Import for Export
 import jsPDF from 'jspdf';
@@ -296,6 +297,7 @@ export default function DashboardPage() {
     const { semesters, students, leaves, loading: dbLoading } = useDatabase();
     const isAdmin = user?.activeRole === 'admin';
     const isMobile = useIsMobile();
+    const { t } = useTranslation();
 
     const [selectedSemesterId, setSelectedSemesterId] = useState<string | null>(null);
     const [selectedTeacher, setSelectedTeacher] = useState<string>("");
