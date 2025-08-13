@@ -32,23 +32,35 @@ import { EnrollStudentDialog } from "@/components/enroll-student-dialog";
 import { AddStudentDialog } from "@/components/add-student-dialog";
 import { CreateSessionDialog } from "@/components/create-session-dialog";
 
-const ImportScheduleDialog = ({ isOpen, onOpenChange }: { isOpen: boolean, onOpenChange: (open: boolean) => void }) => (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Import Schedule</DialogTitle>
-                <DialogDescription>Functionality to bulk-import students from a CSV file coming soon.</DialogDescription>
-            </DialogHeader>
-            <p>Import form will be here.</p>
-        </DialogContent>
-    </Dialog>
-);
-
+const ImportScheduleDialog = ({ isOpen, onOpenChange }: { isOpen: boolean, onOpenChange: (open: boolean) => void }) => {
+    const { t } = useTranslation();
+    
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{t('importSchedule.title')}</DialogTitle>
+                    <DialogDescription>{t('importSchedule.description')}</DialogDescription>
+                </DialogHeader>
+                <p>{t('importSchedule.placeholder')}</p>
+            </DialogContent>
+        </Dialog>
+    );
+};
 
 const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onUpdate, weekStartDate, studentLeaves }: { processedSessions: ProcessedSession[]; dayFilter: string; semester: Semester | undefined; teacherName: string; onUpdate: () => void; weekStartDate: string, studentLeaves: Leave[] }) => {
-  const allDays = ["Saturday", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"];
+  const { t } = useTranslation();
+  const allDays = [
+    t('days.saturday'),
+    t('days.sunday'), 
+    t('days.monday'),
+    t('days.tuesday'),
+    t('days.wednesday'),
+    t('days.thursday')
+  ];
+  const allDaysKeys = ["Saturday", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"];
   const isMobile = useIsMobile();
-  const days = isMobile && dayFilter.toLowerCase() !== 'all' ? [dayFilter] : allDays;
+  const days = isMobile && dayFilter.toLowerCase() !== 'all' ? [dayFilter] : allDaysKeys;
   const timeSlots = Array.from({ length: 12 }, (_, i) => `${i + 10}:00`); // 10 AM to 9 PM (for slots ending at 10 PM)
   const { user } = useAuth();
   const { toast } = useToast();
@@ -69,11 +81,11 @@ const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onU
       
       try {
           await updateSemester(semester.id || "", { weeklyAttendance: updatedWeeklyAttendance });
-          toast({ title: "Attendance updated", description: `Marked as ${status}.`});
+          toast({ title: t('attendance.updated'), description: t('attendance.markedAs', { status: t(`attendance.${status}`) })});
           onUpdate();
       } catch (error) {
           console.error('Error updating attendance:', error);
-          toast({ title: "Error", description: "Failed to update attendance", variant: "destructive" });
+          toast({ title: t('common.error'), description: t('attendance.updateFailed'), variant: "destructive" });
       }
   };
 
@@ -96,7 +108,7 @@ const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onU
                     sessionId: session.id,
                     sessionTime: session.time,
                     day: session.day,
-                    reason: 'Teacher requested removal from schedule view.',
+                    reason: t('removal.teacherReason'),
                     semesterId: semester.id || ""
                 }
             };
@@ -112,35 +124,34 @@ const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onU
                 if (studentIndex > -1) {
                     masterSchedule[teacherName][session.day][sessionIndex].students[studentIndex].pendingRemoval = true;
                      await updateSemester(semester.id || "", { masterSchedule });
-                     toast({ title: "Removal Requested", description: `Request to remove ${student.name} has been sent for approval.` });
+                     toast({ title: t('removal.requested'), description: t('removal.requestSent', { studentName: student.name }) });
                 }
             }
         } else { // Admin directly removes
             const masterSchedule = JSON.parse(JSON.stringify(semester.masterSchedule));
             const daySessions = masterSchedule[teacherName]?.[session.day];
-            if (!daySessions) throw new Error("Could not find day sessions for this teacher.");
+            if (!daySessions) throw new Error(t('errors.daySessionsNotFound'));
             const sessionIndex = daySessions.findIndex((s: Session) => s.id === session.id);
-            if(sessionIndex === -1) throw new Error("Could not find the session.");
+            if(sessionIndex === -1) throw new Error(t('errors.sessionNotFound'));
 
             masterSchedule[teacherName][session.day][sessionIndex].students = 
                 daySessions[sessionIndex].students.filter((s: SessionStudent) => s.id !== student.id);
 
             const studentProfile = allStudents.find(s => s.id === student.id);
-            if (!studentProfile) throw new Error("Student profile not found to update enrollment.");
+            if (!studentProfile) throw new Error(t('errors.studentProfileNotFound'));
 
             const updatedEnrolledIn = studentProfile.enrolledIn.filter(e => !(e.semesterId === semester.id && e.sessionId === session.id));
             
             await updateStudent(student.id, { enrolledIn: updatedEnrolledIn });
             await updateSemester(semester.id || "", { masterSchedule });
 
-            toast({ title: "Student Removed", description: `${student.name} has been removed from the session.` });
+            toast({ title: t('removal.studentRemoved'), description: t('removal.removedFromSession', { studentName: student.name }) });
         }
         onUpdate();
     } catch (error: any) {
-        toast({ title: "Error", description: `Failed to process removal. ${error.message}`, variant: 'destructive'});
+        toast({ title: t('common.error'), description: t('removal.processFailed', { message: error.message }), variant: 'destructive'});
     }
   };
-
 
   const formatTimeForDisplay = (time: string) => {
       const date = new Date(`1970-01-01T${time}:00`);
@@ -152,12 +163,24 @@ const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onU
     return processedSessions.filter(s => s.day.toLowerCase() === dayFilter.toLowerCase());
   }, [processedSessions, dayFilter])
 
+  const getDayName = (dayKey: string) => {
+    const dayMap: { [key: string]: string } = {
+      'Saturday': t('days.saturday'),
+      'Sunday': t('days.sunday'),
+      'Monday': t('days.monday'),
+      'Tuesday': t('days.tuesday'),
+      'Wednesday': t('days.wednesday'),
+      'Thursday': t('days.thursday')
+    };
+    return dayMap[dayKey] || dayKey;
+  };
+
   if (isMobile && dayFilter.toLowerCase() === 'all' && filteredSessions.length > 0) {
-    return <Card className="mt-4"><CardContent className="p-4 text-center text-muted-foreground">Please select a day to view the schedule.</CardContent></Card>;
+    return <Card className="mt-4"><CardContent className="p-4 text-center text-muted-foreground">{t('schedule.selectDayToView')}</CardContent></Card>;
   }
 
   if (!processedSessions || processedSessions.length === 0 || (isMobile && filteredSessions.length === 0 && dayFilter.toLowerCase() !== 'all')) {
-    return <Card className="mt-4"><CardContent className="p-4 text-center text-muted-foreground">No schedule available for the selected teacher/day.</CardContent></Card>;
+    return <Card className="mt-4"><CardContent className="p-4 text-center text-muted-foreground">{t('schedule.noScheduleAvailable')}</CardContent></Card>;
   }
 
   return (
@@ -177,7 +200,7 @@ const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onU
       {days.map((day) => day && (
         <div key={day} className="relative col-span-1 bg-background">
           <div className="sticky top-16 z-10 bg-background/95 backdrop-blur-sm h-12 flex items-center justify-center font-semibold border-b">
-            {day}
+            {getDayName(day)}
           </div>
           <div className="absolute top-12 left-0 w-full h-[calc(12_*_7rem)] grid grid-rows-[repeat(12,_7rem)] gap-px">
              {timeSlots.map((time, index) => (
@@ -255,7 +278,7 @@ const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onU
                           </ul>
                          ) : (
                             <div className="flex-grow flex items-center justify-center">
-                                <p className="text-xs text-muted-foreground">No students enrolled</p>
+                                <p className="text-xs text-muted-foreground">{t('schedule.noStudentsEnrolled')}</p>
                             </div>
                          )}
                       </div>
@@ -264,7 +287,7 @@ const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onU
                         <CardFooter className="p-1 border-t">
                             <AddStudentDialog session={session} semester={semester} teacherName={teacherName} onStudentAdded={onUpdate} asChild>
                                 <Button variant="ghost" size="sm" className="w-full h-auto text-xs text-muted-foreground font-normal">
-                                    <UserPlus className="mr-2 h-3 w-3" /> Enroll Student
+                                    <UserPlus className="mr-2 h-3 w-3" /> {t('actions.enrollStudent')}
                                 </Button>
                             </AddStudentDialog>
                         </CardFooter>
@@ -290,7 +313,6 @@ const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onU
     </>
   );
 };
-
 
 export default function DashboardPage() {
     const { user, users } = useAuth();
@@ -456,7 +478,7 @@ export default function DashboardPage() {
     
     const handleExportCSV = () => {
         let csvContent = "data:text/csv;charset=utf-8,";
-        csvContent += "Day,Time,Specialization,Type,Student Name,Attendance\n";
+        csvContent += `"${t('csv.day')}","${t('csv.time')}","${t('csv.specialization')}","${t('csv.type')}","${t('csv.studentName')}","${t('csv.attendance')}"\n`;
 
         processedSessions.forEach(session => {
             session.students.forEach(student => {
@@ -466,7 +488,7 @@ export default function DashboardPage() {
                     `"${session.specialization}"`,
                     `"${session.type}"`,
                     `"${student.name}"`,
-                    `"${student.attendance || 'N/A'}"`
+                    `"${student.attendance ? t(`attendance.${student.attendance}`) : t('common.na')}"`
                 ].join(",");
                 csvContent += row + "\r\n";
             });
@@ -481,7 +503,6 @@ export default function DashboardPage() {
         document.body.removeChild(link);
     };
 
-
     if (dbLoading || !selectedDate) {
         return (
             <div className="flex h-[calc(100vh-8rem)] items-center justify-center">
@@ -495,13 +516,21 @@ export default function DashboardPage() {
     return (
         <div className="space-y-4">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <h1 className="text-2xl font-headline self-start">Admin Dashboard</h1>
+                <h1 className="text-2xl font-headline self-start">{t('dashboard.title')}</h1>
                  {isAdmin && (
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                        <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsEnrolling(true)}><UserPlus/> Enroll Student</Button>
-                        <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsImporting(true)}><Upload/> Import</Button>
-                        <Button variant="outline" className="w-full sm:w-auto" onClick={handleExportPDF}><FileText/> Export PDF</Button>
-                        <Button variant="outline" className="w-full sm:w-auto" onClick={handleExportCSV}><FileDown/> Export CSV</Button>
+                        <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsEnrolling(true)}>
+                            <UserPlus/> {t('actions.enrollStudent')}
+                        </Button>
+                        <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsImporting(true)}>
+                            <Upload/> {t('actions.import')}
+                        </Button>
+                        <Button variant="outline" className="w-full sm:w-auto" onClick={handleExportPDF}>
+                            <FileText/> {t('actions.exportPDF')}
+                        </Button>
+                        <Button variant="outline" className="w-full sm:w-auto" onClick={handleExportCSV}>
+                            <FileDown/> {t('actions.exportCSV')}
+                        </Button>
                     </div>
                  )}
             </div>
@@ -514,7 +543,7 @@ export default function DashboardPage() {
                                 <BarChart3 className="w-5 h-5 text-muted-foreground" />
                                 <Select value={selectedSemesterId || ""} onValueChange={setSelectedSemesterId}>
                                   <SelectTrigger className="w-full xl:w-[180px]">
-                                    <SelectValue placeholder="Select a semester" />
+                                    <SelectValue placeholder={t('dashboard.selectSemester')} />
                                   </SelectTrigger>
                                   <SelectContent>
                                     {semestersState.map(s => <SelectItem key={s.id} value={s.id || ""}>{s.name}</SelectItem>)}
@@ -525,7 +554,7 @@ export default function DashboardPage() {
                                  <Users className="w-5 h-5 text-muted-foreground" />
                                  <Select value={selectedTeacher} onValueChange={setSelectedTeacher} disabled={!selectedSemesterId || availableTeachers.length === 0}>
                                   <SelectTrigger className="w-full xl:w-[180px]">
-                                    <SelectValue placeholder="Select a teacher" />
+                                    <SelectValue placeholder={t('dashboard.selectTeacher')} />
                                   </SelectTrigger>
                                   <SelectContent>
                                     {availableTeachers.map(t => <SelectItem key={t.id} value={t.name || ""}>{t.name}</SelectItem>)}
@@ -554,13 +583,13 @@ export default function DashboardPage() {
                     <div className="w-full xl:w-auto flex items-center gap-2 xl:ml-auto">
                          <Tabs value={dayFilter} onValueChange={setDayFilter} className="w-full md:w-auto">
                             <TabsList className="grid w-full grid-cols-4 md:grid-cols-7">
-                                <TabsTrigger value="All">All</TabsTrigger>
-                                <TabsTrigger value="Saturday">Sat</TabsTrigger>
-                                <TabsTrigger value="Sunday">Sun</TabsTrigger>
-                                <TabsTrigger value="Monday">Mon</TabsTrigger>
-                                <TabsTrigger value="Tuesday">Tue</TabsTrigger>
-                                <TabsTrigger value="Wednesday">Wed</TabsTrigger>
-                                <TabsTrigger value="Thursday">Thu</TabsTrigger>
+                                <TabsTrigger value="All">{t('days.all')}</TabsTrigger>
+                                <TabsTrigger value="Saturday">{t('days.satShort')}</TabsTrigger>
+                                <TabsTrigger value="Sunday">{t('days.sunShort')}</TabsTrigger>
+                                <TabsTrigger value="Monday">{t('days.monShort')}</TabsTrigger>
+                                <TabsTrigger value="Tuesday">{t('days.tueShort')}</TabsTrigger>
+                                <TabsTrigger value="Wednesday">{t('days.wedShort')}</TabsTrigger>
+                                <TabsTrigger value="Thursday">{t('days.thuShort')}</TabsTrigger>
                             </TabsList>
                          </Tabs>
                     </div>
@@ -569,7 +598,7 @@ export default function DashboardPage() {
 
             <div className="overflow-x-auto">
                 {isTeacherOnLeave ? (
-                     <Card><CardContent className="p-6 text-center text-muted-foreground">You are on leave for this period. No classes to display.</CardContent></Card>
+                     <Card><CardContent className="p-6 text-center text-muted-foreground">{t('schedule.onLeaveMessage')}</CardContent></Card>
                 ) : selectedTeacher ? (
                     <ScheduleGrid 
                         processedSessions={processedSessions} 
@@ -581,7 +610,7 @@ export default function DashboardPage() {
                         studentLeaves={studentLeavesForWeek}
                     />
                 ) : (
-                    <Card><CardContent className="p-6 text-center text-muted-foreground">Please select a teacher to view their schedule.</CardContent></Card>
+                    <Card><CardContent className="p-6 text-center text-muted-foreground">{t('schedule.selectTeacherMessage')}</CardContent></Card>
                 )}
             </div>
 
