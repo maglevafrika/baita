@@ -277,7 +277,274 @@ const resources = {
   },
   ar: {
     translation: {
-      // ... your Arabic section unchanged ...
+      nav: {
+        dashboard: "لوحة التحكم",
+        requests: "الطلبات",
+        students: "الطلاب",
+        applicants: "المتقدمين",
+        users: "المستخدمين",
+        semesters: "الفصول الدراسية",
+        leaves: "الإجازات",
+        exclusions: "الاستثناءات",
+        payments: "المدفوعات",
+        reports: "التقارير",
+        settings: "الإعدادات",
+        print: "طباعة",
+        languages: "اللغات",
+        selectLanguage: "اختر اللغة",
+        switchTheme: "التبديل إلى وضع {{mode}}",
+        profile: "الملف الشخصي",
+        changePassword: "تغيير كلمة المرور",
+        switchRole: "تبديل الدور",
+        activeAs: "نشط كـ: {{role}}",
+        logout: "تسجيل الخروج",
+        languageChanged: "تم تغيير اللغة",
+        languageSwitched: "تم التبديل إلى {{language}}",
+        accessDenied: "تم رفض الوصول",
+        noPermission: "ليس لديك صلاحية للوصول إلى الإعدادات."
+      },
+      common: {
+        light: "فاتح",
+        dark: "داكن",
+        english: "English",
+        arabic: "العربية",
+        error: "خطأ",
+        success: "نجح",
+        loading: "جارٍ التحميل...",
+        na: "غير متاح"
+      },
+      days: {
+        all: "الكل",
+        saturday: "السبت",
+        sunday: "الأحد",
+        monday: "الاثنين",
+        tuesday: "الثلاثاء",
+        wednesday: "الأربعاء",
+        thursday: "الخميس",
+        satShort: "سبت",
+        sunShort: "أحد",
+        monShort: "اثنين",
+        tueShort: "ثلاثاء",
+        wedShort: "أربعاء",
+        thuShort: "خميس"
+      },
+      dashboard: {
+        title: "لوحة الإدارة",
+        welcome: "مرحباً بعودتك!",
+        students: "الطلاب",
+        applicants: "المتقدمين",
+        payments: "المدفوعات",
+        reports: "التقارير",
+        leaves: "الإجازات",
+        requests: "الطلبات",
+        exclusions: "الاستثناءات",
+        semesters: "الفصول الدراسية",
+        users: "المستخدمين",
+        selectSemester: "اختر فصل دراسي",
+        selectTeacher: "اختر مدرس",
+        selectTeacherToView: "يرجى اختيار مدرس لعرض جدوله",
+        teacherOnLeave: "أنت في إجازة خلال هذه الفترة. لا توجد فصول للعرض",
+        selectDayToView: "يرجى اختيار يوم لعرض الجدول",
+        noScheduleAvailable: "لا يوجد جدول متاح للمدرس/اليوم المحدد",
+        noStudentsEnrolled: "لا يوجد طلاب مسجلين"
+      },
+      actions: {
+        enrollStudent: "تسجيل طالب",
+        import: "استيراد",
+        exportPDF: "تصدير PDF",
+        exportCSV: "تصدير CSV"
+      },
+      applicants: {
+        title: "إدارة المتقدمين",
+        addNew: "إضافة متقدم جديد",
+        name: "الاسم",
+        instrument: "الآلة الموسيقية",
+        status: "الحالة",
+        appliedOn: "تاريخ التقدم",
+        interview: "المقابلة",
+        notScheduled: "غير مجدولة",
+        at: "في",
+        with: "مع",
+        selectAll: "اختر الكل",
+        selectRow: "اختر الصف",
+        openMenu: "فتح القائمة",
+        filterByName: "البحث بالاسم...",
+        scheduleInterviewCount: "جدولة مقابلة ({{count}})",
+        columns: "الأعمدة",
+        noResults: "لا توجد نتائج.",
+        rowsSelected: "تم اختيار {{selected}} من {{total}} صف.",
+        previous: "السابق",
+        next: "التالي",
+        statusTypes: {
+          pending_review: "في انتظار المراجعة",
+          interview_scheduled: "تم جدولة المقابلة",
+          evaluated: "تم التقييم",
+          approved: "مقبول",
+          rejected: "مرفوض",
+          cancelled: "ملغي",
+          re_evaluation: "إعادة تقييم"
+        },
+        actions: {
+          editApplicant: "تعديل المتقدم",
+          scheduleInterview: "جدولة مقابلة",
+          evaluate: "تقييم",
+          cancelApplication: "إلغاء الطلب"
+        }
+      },
+      schedule: {
+        selectDayToView: "يرجى اختيار يوم لعرض الجدول",
+        noScheduleAvailable: "لا يوجد جدول متاح للمدرس/اليوم المحدد",
+        noStudentsEnrolled: "لا يوجد طلاب مسجلين",
+        onLeaveMessage: "أنت في إجازة خلال هذه الفترة. لا توجد فصول لعرضها",
+        selectTeacherMessage: "يرجى اختيار مدرس لعرض جدوله"
+      },
+      attendance: {
+        updated: "تم تحديث الحضور",
+        markedAs: "تم التسجيل كـ {{status}}",
+        updateFailed: "فشل في تحديث الحضور",
+        present: "حاضر",
+        absent: "غائب",
+        late: "متأخر",
+        excused: "معذور"
+      },
+      removal: {
+        teacherReason: "طلب المدرس إزالة من عرض الجدول",
+        requested: "تم طلب الإزالة",
+        requestSent: "تم إرسال طلب إزالة {{studentName}} للموافقة",
+        studentRemoved: "تم إزالة الطالب",
+        removedFromSession: "تم إزالة {{studentName}} من الجلسة",
+        processFailed: "فشل في معالجة الإزالة. {{message}}"
+      },
+      importSchedule: {
+        title: "استيراد الجدول",
+        description: "وظيفة الاستيراد المجمع للطلاب من ملف CSV قريباً",
+        placeholder: "نموذج الاستيراد سيكون هنا"
+      },
+      csv: {
+        day: "اليوم",
+        time: "الوقت",
+        specialization: "التخصص",
+        type: "النوع",
+        studentName: "اسم الطالب",
+        attendance: "الحضور"
+      },
+      errors: {
+        daySessionsNotFound: "لا يمكن العثور على جلسات اليوم لهذا المدرس",
+        sessionNotFound: "لا يمكن العثور على الجلسة",
+        studentProfileNotFound: "لم يتم العثور على ملف الطالب الشخصي لتحديث التسجيل"
+      },
+      requests: {
+        title: "طلبات المدرسين",
+        submittedOn: "تم الإرسال في",
+        noPending: {
+          title: "لا توجد طلبات معلقة",
+          description: "لا توجد طلبات معلقة من المدرسين في هذا الوقت."
+        },
+        types: {
+          addStudent: "إضافة طالب",
+          removeStudent: "إزالة طالب",
+          changeTime: "تغيير الوقت",
+          addStudentTitle: "طلب إضافة طالب",
+          removeStudentTitle: "طلب إزالة طالب",
+          changeTimeTitle: "طلب تغيير الوقت",
+          newRequest: "طلب جديد"
+        },
+        labels: {
+          student: "طالب",
+          teacher: "مدرس",
+          classDay: "يوم الفصل",
+          classTime: "وقت الفصل",
+          reason: "السبب"
+        },
+        actions: {
+          approve: "الموافقة",
+          deny: "الرفض"
+        },
+        status: {
+          approved: "تم قبول الطلب",
+          approvedDescription: "تم قبول الطلب بنجاح.",
+          denied: "تم رفض الطلب",
+          deniedDescription: "تم رفض الطلب بنجاح.",
+          failedApproved: "فشل في قبول الطلب",
+          failedDenied: "فشل في رفض الطلب",
+          updateError: "حدثت مشكلة في تحديث الطلب. {{message}}"
+        },
+        errors: {
+          missingRequestId: "معرف الطلب مفقود.",
+          semesterOrStudentNotFound: "لا يمكن العثور على الفصل الدراسي أو الطالب لهذا الطلب.",
+          missingSemesterId: "معرف الفصل الدراسي مفقود.",
+          missingStudentId: "معرف الطالب مفقود.",
+          teacherNotFound: "المدرس {{teacherName}} غير موجود في الجدول.",
+          noSessionsFound: "لا توجد جلسات لـ {{teacherName}} في {{day}}.",
+          sessionNotFound: "الجلسة {{sessionId}} غير موجودة في الجدول."
+        }
+      },
+      leaves: {
+        title: "إدارة الإجازات",
+        description: "عرض وإدارة جميع طلبات الإجازات للطلاب والمدرسين.",
+        newRequest: "طلب إجازة جديد",
+        requestFor: "طلب لـ",
+        student: "طالب",
+        teacher: "مدرس",
+        selectType: "اختر النوع...",
+        selectStudent: "اختر الطالب...",
+        selectTeacher: "اختر المدرس...",
+        leaveDates: "تواريخ الإجازة",
+        pickDateRange: "اختر نطاق التواريخ",
+        reason: "السبب",
+        reasonPlaceholder: "سبب الإجازة...",
+        submit: "إرسال الطلب",
+        approve: "الموافقة",
+        deny: "الرفض",
+        leaveApproved: "تمت الموافقة على الإجازة",
+        leaveDenied: "تم رفض الإجازة",
+        noRequests: "لا توجد طلبات إجازة.",
+        studentsTransferred: "تم نقل الطلاب",
+        studentsTransferredDescription: "تم نقل الطلاب إلى جداولهم الجديدة.",
+        transferTitle: "نقل الطلاب لـ {{name}}",
+        transferDescription: "الطلاب التاليون متأثرون بهذه الإجازة. يرجى إعادة تعيينهم إلى مدرس جديد للفترة.",
+        confirmTransfers: "تأكيد النقل والموافقة",
+        cancel: "إلغاء"
+      },
+      reportsPage: {
+        title: "التقارير والتحليلات",
+        enrollmentTrends: "اتجاهات تسجيل الطلاب",
+        enrollmentDescription: "عدد الطلاب الجدد المسجلين شهرياً.",
+        financialOverview: "نظرة مالية عامة",
+        financialDescription: "تفصيل جميع المدفوعات بالتقسيط.",
+        applicantFunnel: "مراحل المتقدمين",
+        applicantDescription: "الحالة الحالية لجميع الطلبات.",
+        genderDistribution: "توزيع الجنس",
+        genderDescription: "تفصيل الطلاب حسب الجنس.",
+        ageGroups: "الفئات العمرية",
+        ageGroupsDescription: "توزيع الطلاب حسب الفئة العمرية.",
+        expectedRevenue: "الإيرادات المتوقعة",
+        expectedRevenueDescription: "مقارنة الإيرادات المتوقعة من الاشتراكات مقابل المدفوعات المحصلة.",
+        teacherWorkload: "عبء عمل المدرسين",
+        teacherWorkloadDescription: "ساعات العمل الأسبوعية لكل مدرس، مفصلة حسب اليوم."
+      },
+      exclusions: {
+        title: "قواعد الاستثناء",
+        description: "اختر فصل دراسي لعرض أو تعديل قواعد الاستثناء الخاصة به.",
+        addNew: "إضافة قاعدة استثناء",
+        addNewTitle: "إضافة قاعدة استثناء جديدة",
+        addNewDescription: "منع شخصين من الجدولة في نفس الصف.",
+        ruleType: "نوع القاعدة",
+        selectRuleType: "اختر نوع القاعدة...",
+        teacherStudent: "مدرس ضد طالب",
+        studentStudent: "طالب ضد طالب",
+        select: "اختر...",
+        student1: "طالب 1",
+        student2: "طالب",
+        reason: "السبب",
+        reasonPlaceholder: "أدخل سبب هذه القاعدة...",
+        save: "حفظ القاعدة",
+        noRules: "لم يتم تعيين قواعد استثناء لهذا الفصل.",
+        ruleAdded: "تمت إضافة القاعدة",
+        ruleAddedDescription: "تم حفظ القاعدة الجديدة.",
+        ruleRemoved: "تمت إزالة القاعدة",
+        ruleRemovedDescription: "تم حذف القاعدة بنجاح."
+      }
     }
   }
 };
