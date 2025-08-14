@@ -314,6 +314,7 @@ const resources = {
         allUsersDescription: "Manage system users and their permissions.",
         name: "Name",
         username: "Username",
+        rolesLabel: "Roles",
         actions: "Actions",
         roles: {
           admin: "Admin",
@@ -387,7 +388,8 @@ const resources = {
         error: "خطأ",
         success: "نجح",
         loading: "جارٍ التحميل...",
-        na: "غير متاح"
+        na: "غير متاح",
+        edit: "تعديل"
       },
       days: {
         all: "الكل",
@@ -428,7 +430,10 @@ const resources = {
         enrollStudent: "تسجيل طالب",
         import: "استيراد",
         exportPDF: "تصدير PDF",
-        exportCSV: "تصدير CSV"
+        exportCSV: "تصدير CSV",
+        addNewUser: "إضافة مستخدم جديد", 
+        importStudents: "استيراد الطلاب", 
+        addNewStudent: "إضافة طالب جديد"
       },
       applicants: {
         title: "إدارة المتقدمين",
@@ -650,26 +655,44 @@ const resources = {
   deleteRuleError: "فشل في حذف قاعدة الاستثناء. يرجى المحاولة مرة أخرى."
 },
         usersPage: {
-            title: "إدارة المستخدمين",
-            addNewUser: "إضافة مستخدم جديد",
-            editUser: "تعديل المستخدم",
-            deleteUser: "حذف المستخدم",
-            noUsers: "لا توجد مستخدمين. أضف واحداً للبدء.",
-            roles: {
-            admin: "مدير",
-            teacher: "مدرس",
-            student: "طالب",
-            staff: "موظف"
-            }
-        },
+    title: "إدارة المستخدمين",
+    addNewUser: "إضافة مستخدم جديد",
+    editUser: "تعديل المستخدم",
+    deleteUser: "حذف المستخدم",
+    noUsers: "لا توجد مستخدمين. أضف واحداً للبدء.",
+    allUsersTitle: "جميع المستخدمين", // ✅ Missing key
+    allUsersDescription: "إدارة مستخدمي النظام وصلاحياتهم.", // ✅ Missing key
+    name: "الاسم", // ✅ Missing key
+    username: "اسم المستخدم", // ✅ Missing key
+    rolesLabel: "الأدوار", // ✅ Missing key
+    actions: "الإجراءات", // ✅ Missing key
+    roles: {
+      admin: "مدير",
+      teacher: "مدرس",
+      student: "طالب",
+      staff: "موظف"
+    }
+  },
         studentsPage: {
-            title: "إدارة الطلاب",
-            addNewStudent: "إضافة طالب جديد",
-            editStudent: "تعديل الطالب",
-            deleteStudent: "حذف الطالب",
-            noStudents: "لا توجد طلاب. أضف واحداً للبدء.",
-            enrolledIn: "مسجل في {{count}} دورة(دورات)"
-        },
+    title: "إدارة الطلاب",
+    addNewStudent: "إضافة طالب جديد",
+    editStudent: "تعديل الطالب",
+    deleteStudent: "حذف الطالب",
+    noStudents: "لا توجد طلاب. أضف واحداً للبدء.",
+    enrolledIn: "مسجل في {{count}} دورة(دورات)",
+    addStudentTitle: "إضافة طالب جديد", // ✅ Missing key
+    addStudentDescription: "إضافة طالب جديد إلى النظام مع تفاصيله.", // ✅ Missing key
+    allStudentsTitle: "جميع الطلاب", // ✅ Missing key
+    searchPlaceholder: "البحث في الطلاب...", // ✅ Missing key
+    filterByLevel: "تصفية حسب المستوى", // ✅ Missing key
+    allLevels: "جميع المستويات", // ✅ Missing key
+    name: "الاسم", // ✅ Missing key
+    level: "المستوى", // ✅ Missing key
+    actions: "الإجراءات", // ✅ Missing key
+    sessions: "{{count}} جلسة(جلسات)", // ✅ Missing key
+    viewProfile: "عرض الملف الشخصي", // ✅ Missing key
+    noStudentsFound: "لم يتم العثور على طلاب." // ✅ Missing key
+  },
         semestersPage: {
             title: "إدارة الفصول الدراسية",
             addNewSemester: "إضافة فصل دراسي جديد",

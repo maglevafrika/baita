@@ -68,7 +68,7 @@ export default function UsersPage() {
                 <TableRow>
                   <TableHead>{t("usersPage.name")}</TableHead>
                   <TableHead>{t("usersPage.username")}</TableHead>
-                  <TableHead>{t("usersPage.roles")}</TableHead>
+                  <TableHead>{t("usersPage.rolesLabel")}</TableHead>
                   <TableHead className="text-right">{t("usersPage.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
