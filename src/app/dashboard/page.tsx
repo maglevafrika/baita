@@ -50,15 +50,10 @@ const ImportScheduleDialog = ({ isOpen, onOpenChange }: { isOpen: boolean, onOpe
 
 const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onUpdate, weekStartDate, studentLeaves }: { processedSessions: ProcessedSession[]; dayFilter: string; semester: Semester | undefined; teacherName: string; onUpdate: () => void; weekStartDate: string, studentLeaves: Leave[] }) => {
   const { t } = useTranslation();
-  const allDays = [
-    t('days.saturday'),
-    t('days.sunday'), 
-    t('days.monday'),
-    t('days.tuesday'),
-    t('days.wednesday'),
-    t('days.thursday')
-  ];
+  
+  // Define the day keys and their order
   const allDaysKeys = ["Saturday", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"];
+  
   const isMobile = useIsMobile();
   const days = isMobile && dayFilter.toLowerCase() !== 'all' ? [dayFilter] : allDaysKeys;
   const timeSlots = Array.from({ length: 12 }, (_, i) => `${i + 10}:00`); // 10 AM to 9 PM (for slots ending at 10 PM)
@@ -163,6 +158,7 @@ const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onU
     return processedSessions.filter(s => s.day.toLowerCase() === dayFilter.toLowerCase());
   }, [processedSessions, dayFilter])
 
+  // Updated function to get translated day name
   const getDayName = (dayKey: string) => {
     const dayMap: { [key: string]: string } = {
       'Saturday': t('days.saturday'),

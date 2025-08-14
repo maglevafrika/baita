@@ -31,6 +31,21 @@ const resources = {
         loading: "Loading...",
         na: "N/A"
       },
+      days: {
+        all: "All",
+        saturday: "Saturday",
+        sunday: "Sunday",
+        monday: "Monday",
+        tuesday: "Tuesday",
+        wednesday: "Wednesday",
+        thursday: "Thursday",
+        satShort: "Sat",
+        sunShort: "Sun",
+        monShort: "Mon",
+        tueShort: "Tue",
+        wedShort: "Wed",
+        thuShort: "Thu"
+      },
       dashboard: {
         title: "Admin Dashboard",
         welcome: "Welcome back!",
@@ -43,33 +58,13 @@ const resources = {
         exclusions: "Exclusions",
         semesters: "Semesters",
         users: "Users",
-        enrollStudent: "Enroll Student",
-        import: "Import",
-        exportPDF: "Export PDF",
-        exportCSV: "Export CSV",
         selectSemester: "Select a semester",
         selectTeacher: "Select a teacher",
         selectTeacherToView: "Please select a teacher to view their schedule.",
         teacherOnLeave: "You are on leave for this period. No classes to display.",
         selectDayToView: "Please select a day to view the schedule",
         noScheduleAvailable: "No schedule available for the selected teacher/day",
-        noStudentsEnrolled: "No students enrolled",
-        all: "All",
-        days: {
-          saturday: "Saturday",
-          sunday: "Sunday",
-          monday: "Monday",
-          tuesday: "Tuesday",
-          wednesday: "Wednesday",
-          thursday: "Thursday",
-          sat: "Sat",
-          sun: "Sun",
-          mon: "Mon",
-          tue: "Tue",
-          wed: "Wed",
-          thu: "Thu"
-          
-        }
+        noStudentsEnrolled: "No students enrolled"
       },
       actions: {
         enrollStudent: "Enroll Student",
@@ -149,6 +144,21 @@ const resources = {
         loading: "جارٍ التحميل...",
         na: "غير متاح"
       },
+      days: {
+        all: "الكل",
+        saturday: "السبت",
+        sunday: "الأحد",
+        monday: "الاثنين",
+        tuesday: "الثلاثاء",
+        wednesday: "الأربعاء",
+        thursday: "الخميس",
+        satShort: "سبت",
+        sunShort: "أحد",
+        monShort: "اثنين",
+        tueShort: "ثلاثاء",
+        wedShort: "أربعاء",
+        thuShort: "خميس"
+      },
       dashboard: {
         title: "لوحة الإدارة",
         welcome: "مرحباً بعودتك!",
@@ -161,33 +171,13 @@ const resources = {
         exclusions: "الاستثناءات",
         semesters: "الفصول الدراسية",
         users: "المستخدمين",
-        enrollStudent: "تسجيل طالب",
-        import: "استيراد",
-        exportPDF: "تصدير PDF",
-        exportCSV: "تصدير CSV",
         selectSemester: "اختر فصل دراسي",
         selectTeacher: "اختر مدرس",
         selectTeacherToView: "يرجى اختيار مدرس لعرض جدوله",
         teacherOnLeave: "أنت في إجازة خلال هذه الفترة. لا توجد فصول للعرض",
         selectDayToView: "يرجى اختيار يوم لعرض الجدول",
         noScheduleAvailable: "لا يوجد جدول متاح للمدرس/اليوم المحدد",
-        noStudentsEnrolled: "لا يوجد طلاب مسجلين",
-        all: "الكل",
-        days: {
-          saturday: "السبت",
-          sunday: "الأحد",
-          monday: "الاثنين",
-          tuesday: "الثلاثاء",
-          wednesday: "الأربعاء",
-          thursday: "الخميس",
-          sat: "سبت",
-          sun: "أحد",
-          mon: "اثنين",
-          tue: "ثلاثاء",
-          wed: "أربعاء",
-          thu: "خميس"
-          
-        }
+        noStudentsEnrolled: "لا يوجد طلاب مسجلين"
       },
       actions: {
         enrollStudent: "تسجيل طالب",
