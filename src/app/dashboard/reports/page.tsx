@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bar, BarChart, Pie, PieChart, Cell, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Bar, BarChart, Pie, PieChart, Cell, CartesianGrid, XAxis, YAxis, Legend } from 'recharts';
 import { useDatabase } from '@/context/database-context';
 import { useApplicants } from '@/context/applicants-context';
 import type { Installment } from '@/lib/types';
@@ -10,6 +10,7 @@ import { format, parseISO, startOfDay, differenceInYears } from 'date-fns';
 import { LineChart as LineChartIcon, Users, DollarSign, UserCheck, Loader2, UserRound, Cake, BarChartHorizontal, TrendingUp } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tooltip } from '@radix-ui/react-tooltip';
 
 const chartConfig = {
   students: { label: "Students", color: "hsl(var(--primary))" },
@@ -31,7 +32,6 @@ const chartConfig = {
   collected: { label: 'Collected', color: 'hsl(var(--chart-3))' },
 };
 
-// Main Page Component
 export default function ReportsPage() {
     const { students, semesters, loading: dbLoading } = useDatabase();
     const { applicants, loading: appLoading } = useApplicants();
@@ -45,9 +45,7 @@ export default function ReportsPage() {
                 try {
                     const month = format(parseISO(student.enrollmentDate), 'MMM yyyy');
                     countsByMonth[month] = (countsByMonth[month] || 0) + 1;
-                } catch(e) {
-                    console.error("Invalid date format for student:", student.id, student.enrollmentDate);
-                }
+                } catch {}
             }
         });
         
@@ -67,46 +65,39 @@ export default function ReportsPage() {
     
     // 2. Financial Data
     const financialData = useMemo(() => {
-        const stats = { paid: 0, unpaid: 0, overdue: 0, total: 0 };
+        const stats = { paid: 0, unpaid: 0, overdue: 0 };
         const today = startOfDay(new Date());
 
         students.forEach(student => {
-            if(student.installments) {
-                student.installments.forEach((inst: Installment) => {
-                    stats.total += inst.amount;
-                    if(inst.status === 'paid') {
-                        stats.paid += inst.amount;
-                    } else {
-                        const dueDate = startOfDay(parseISO(inst.dueDate));
-                        if(dueDate < today) {
-                            stats.overdue += inst.amount;
-                        } else {
-                            stats.unpaid += inst.amount;
-                        }
-                    }
-                })
-            }
+            student.installments?.forEach((inst: Installment) => {
+                if(inst.status === 'paid') {
+                    stats.paid += inst.amount;
+                } else {
+                    const dueDate = startOfDay(parseISO(inst.dueDate));
+                    if(dueDate < today) stats.overdue += inst.amount;
+                    else stats.unpaid += inst.amount;
+                }
+            })
         });
         
         return [
-            { name: 'Paid', value: stats.paid, fill: 'var(--color-paid)' },
-            { name: 'Unpaid', value: stats.unpaid, fill: 'var(--color-unpaid)' },
-            { name: 'Overdue', value: stats.overdue, fill: 'var(--color-overdue)' },
+            { name: t('reports.paid'), value: stats.paid, fill: 'var(--color-paid)' },
+            { name: t('reports.unpaid'), value: stats.unpaid, fill: 'var(--color-unpaid)' },
+            { name: t('reports.overdue'), value: stats.overdue, fill: 'var(--color-overdue)' },
         ];
-    }, [students]);
+    }, [students, t]);
 
     // 3. Applicant Data
     const applicantData = useMemo(() => {
-    if (!Array.isArray(applicants)) return []; // safeguard
-    const counts = applicants.reduce((acc, applicant) => {
-        acc[applicant.status] = (acc[applicant.status] || 0) + 1;
-        return acc;
-    }, {} as Record<string, number>);
-    return Object.entries(counts).map(([name, value]) => ({
-        name: name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-        count: value
-    }));
-}, [applicants]);
+        const counts = applicants.reduce((acc, applicant) => {
+            acc[applicant.status] = (acc[applicant.status] || 0) + 1;
+            return acc;
+        }, {} as Record<string, number>);
+        return Object.entries(counts).map(([name, value]) => ({
+            name,
+            count: value
+        }));
+    }, [applicants]);
 
     // 4. Gender Data
     const genderData = useMemo(() => {
@@ -117,78 +108,67 @@ export default function ReportsPage() {
         }, {} as Record<string, number>);
 
         return [
-            { name: 'Male', value: counts.male || 0, fill: 'var(--color-male)' },
-            { name: 'Female', value: counts.female || 0, fill: 'var(--color-female)' },
+            { name: t('reports.male'), value: counts.male || 0, fill: 'var(--color-male)' },
+            { name: t('reports.female'), value: counts.female || 0, fill: 'var(--color-female)' },
         ];
-    }, [students]);
+    }, [students, t]);
 
     // 5. Age Group Data
     const ageGroupData = useMemo(() => {
         const ageGroups: { [key: string]: number } = {
-            'Under 18': 0,
-            '18-24': 0,
-            '25-34': 0,
-            '35-44': 0,
-            '45+': 0,
+            [t('reports.under18')]: 0,
+            [t('reports.18_24')]: 0,
+            [t('reports.25_34')]: 0,
+            [t('reports.35_44')]: 0,
+            [t('reports.45plus')]: 0,
         };
 
         const today = new Date();
         students.forEach(student => {
             if (student.dob) {
                 const age = differenceInYears(today, parseISO(student.dob));
-                if (age < 18) ageGroups['Under 18']++;
-                else if (age <= 24) ageGroups['18-24']++;
-                else if (age <= 34) ageGroups['25-34']++;
-                else if (age <= 44) ageGroups['35-44']++;
-                else ageGroups['45+']++;
+                if (age < 18) ageGroups[t('reports.under18')]++;
+                else if (age <= 24) ageGroups[t('reports.18_24')]++;
+                else if (age <= 34) ageGroups[t('reports.25_34')]++;
+                else if (age <= 44) ageGroups[t('reports.35_44')]++;
+                else ageGroups[t('reports.45plus')]++;
             }
         });
 
         return Object.entries(ageGroups).map(([name, count]) => ({ name, students: count }));
-    }, [students]);
+    }, [students, t]);
 
     // 6. Teacher Workload Data
     const teacherWorkloadData = useMemo(() => {
-    if (!Array.isArray(semesters) || !semesters.length || !semesters[0]?.masterSchedule) return [];
-    const { masterSchedule } = semesters[0];
-    return Object.entries(masterSchedule).map(([teacherName, schedule]) => {
-        const workload: { [day: string]: number } = {
-            saturday: 0, sunday: 0, monday: 0, tuesday: 0, wednesday: 0, thursday: 0
-        };
-        Object.entries(schedule || {}).forEach(([day, sessions]) => {
-            const totalHours = Array.isArray(sessions)
-                ? sessions.reduce((acc, session) => acc + session.duration, 0)
-                : 0;
-            const dayKey = day.toLowerCase();
-            if (dayKey in workload) workload[dayKey] = totalHours;
+        if (!semesters.length || !semesters[0]?.masterSchedule) return [];
+        const { masterSchedule } = semesters[0];
+        return Object.entries(masterSchedule).map(([teacherName, schedule]) => {
+            const workload: { [day: string]: number } = {
+                saturday: 0, sunday: 0, monday: 0, tuesday: 0, wednesday: 0, thursday: 0
+            };
+            Object.entries(schedule || {}).forEach(([day, sessions]) => {
+                const totalHours = Array.isArray(sessions)
+                    ? sessions.reduce((acc, session) => acc + session.duration, 0)
+                    : 0;
+                if (day.toLowerCase() in workload) workload[day.toLowerCase()] = totalHours;
+            });
+            return { name: teacherName, ...workload };
         });
-        return { name: teacherName, ...workload };
-    });
-}, [semesters]);
+    }, [semesters]);
 
     // 7. Expected Revenue
     const expectedRevenueData = useMemo(() => {
-        const stats = {
-            expected: 0,
-            collected: 0,
-        };
-
+        const stats = { expected: 0, collected: 0 };
         students.forEach(student => {
-            if(student.installments) {
-                student.installments.forEach((inst: Installment) => {
-                    stats.expected += inst.amount;
-                    if(inst.status === 'paid') {
-                        stats.collected += inst.amount;
-                    }
-                });
-            }
+            student.installments?.forEach((inst: Installment) => {
+                stats.expected += inst.amount;
+                if(inst.status === 'paid') stats.collected += inst.amount;
+            });
         });
-        
         return [
-            { name: 'Revenue', expected: stats.expected, collected: stats.collected }
+            { name: t('reports.revenue'), expected: stats.expected, collected: stats.collected }
         ];
-    }, [students]);
-
+    }, [students, t]);
 
     const loading = dbLoading || appLoading;
 
@@ -200,39 +180,42 @@ export default function ReportsPage() {
         <div className="space-y-6">
             <div className="flex items-center gap-4">
                 <LineChartIcon className="w-8 h-8 text-primary" />
-                <h1 className="text-3xl font-bold font-headline">Reports & Analytics</h1>
+                <h1 className="text-3xl font-bold font-headline">{t('reports.title')}</h1>
             </div>
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                 <Card className="lg:col-span-2">
+                {/* Enrollment Trends */}
+                <Card className="lg:col-span-2">
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><Users /> Student Enrollment Trends</CardTitle>
-                        <CardDescription>New student enrollments per month.</CardDescription>
+                        <CardTitle className="flex items-center gap-2"><Users /> {t('reports.enrollmentTrends')}</CardTitle>
+                        <CardDescription>{t('reports.enrollmentTrendsDesc')}</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <ChartContainer config={chartConfig} className="h-64 w-full">
-                            <BarChart data={enrollmentData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
+                            <BarChart data={enrollmentData}>
                                 <CartesianGrid vertical={false} />
-                                <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} />
+                                <XAxis dataKey="name" />
                                 <YAxis />
                                 <ChartTooltip content={<ChartTooltipContent />} />
-                                <Bar dataKey="students" fill="var(--color-students)" radius={4} />
+                                <Bar dataKey="students" fill="var(--color-students)" />
                             </BarChart>
                         </ChartContainer>
                     </CardContent>
                 </Card>
+
+                {/* Financial Overview */}
                 <Card>
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><DollarSign /> Financial Overview</CardTitle>
-                         <CardDescription>Breakdown of all installment payments.</CardDescription>
+                        <CardTitle className="flex items-center gap-2"><DollarSign /> {t('reports.financialOverview')}</CardTitle>
+                        <CardDescription>{t('reports.financialOverviewDesc')}</CardDescription>
                     </CardHeader>
                     <CardContent>
-                         <ChartContainer config={chartConfig} className="h-64 w-full">
+                        <ChartContainer config={chartConfig} className="h-64 w-full">
                             <PieChart>
                                 <ChartTooltip content={<ChartTooltipContent nameKey="value" />} />
                                 <Pie data={financialData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80}>
                                     {financialData.map((entry) => (
-                                        <Cell key={`cell-${entry.name}`} fill={entry.fill} />
+                                        <Cell key={entry.name} fill={entry.fill} />
                                     ))}
                                 </Pie>
                                 <ChartLegend content={<ChartLegendContent />} />
@@ -240,35 +223,39 @@ export default function ReportsPage() {
                         </ChartContainer>
                     </CardContent>
                 </Card>
-                 <Card className="lg:col-span-3">
+
+                {/* Applicant Funnel */}
+                <Card className="lg:col-span-3">
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><UserCheck /> Applicant Funnel</CardTitle>
-                        <CardDescription>Current status of all applications.</CardDescription>
+                        <CardTitle className="flex items-center gap-2"><UserCheck /> {t('reports.applicantFunnel')}</CardTitle>
+                        <CardDescription>{t('reports.applicantFunnelDesc')}</CardDescription>
                     </CardHeader>
                     <CardContent>
-                         <ChartContainer config={chartConfig} className="h-64 w-full">
-                            <BarChart data={applicantData} layout="vertical" margin={{ top: 20, right: 20, left: 40, bottom: 0 }}>
+                        <ChartContainer config={chartConfig} className="h-64 w-full">
+                            <BarChart data={applicantData} layout="vertical">
                                 <CartesianGrid horizontal={false} />
                                 <XAxis type="number" />
-                                <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} tickMargin={8} width={120} />
+                                <YAxis dataKey="name" type="category" />
                                 <ChartTooltip content={<ChartTooltipContent />} />
-                                <Bar dataKey="count" fill="var(--color-applicants)" radius={4} />
+                                <Bar dataKey="count" fill="var(--color-applicants)" />
                             </BarChart>
                         </ChartContainer>
                     </CardContent>
                 </Card>
+
+                {/* Gender Distribution */}
                 <Card>
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><UserRound /> Gender Distribution</CardTitle>
-                         <CardDescription>Breakdown of student gender.</CardDescription>
+                        <CardTitle className="flex items-center gap-2"><UserRound /> {t('reports.genderDistribution')}</CardTitle>
+                        <CardDescription>{t('reports.genderDistributionDesc')}</CardDescription>
                     </CardHeader>
                     <CardContent>
-                         <ChartContainer config={chartConfig} className="h-64 w-full">
+                        <ChartContainer config={chartConfig} className="h-64 w-full">
                             <PieChart>
                                 <ChartTooltip content={<ChartTooltipContent nameKey="value" />} />
                                 <Pie data={genderData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80}>
                                     {genderData.map((entry) => (
-                                        <Cell key={`cell-gender-${entry.name}`} fill={entry.fill} />
+                                        <Cell key={entry.name} fill={entry.fill} />
                                     ))}
                                 </Pie>
                                 <ChartLegend content={<ChartLegendContent />} />
@@ -276,61 +263,67 @@ export default function ReportsPage() {
                         </ChartContainer>
                     </CardContent>
                 </Card>
-                 <Card className="lg:col-span-2">
+
+                {/* Age Groups */}
+                <Card className="lg:col-span-2">
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><Cake /> Age Groups</CardTitle>
-                        <CardDescription>Distribution of students by age group.</CardDescription>
+                        <CardTitle className="flex items-center gap-2"><Cake /> {t('reports.ageGroups')}</CardTitle>
+                        <CardDescription>{t('reports.ageGroupsDesc')}</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <ChartContainer config={chartConfig} className="h-64 w-full">
-                            <BarChart data={ageGroupData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
+                            <BarChart data={ageGroupData}>
                                 <CartesianGrid vertical={false} />
-                                <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} />
+                                <XAxis dataKey="name" />
                                 <YAxis />
                                 <ChartTooltip content={<ChartTooltipContent />} />
-                                <Bar dataKey="students" fill="var(--color-age)" radius={4} />
+                                <Bar dataKey="students" fill="var(--color-age)" />
                             </BarChart>
                         </ChartContainer>
                     </CardContent>
                 </Card>
-                 <Card className="lg:col-span-3">
+
+                {/* Expected Revenue */}
+                <Card className="lg:col-span-3">
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><TrendingUp /> Expected Revenue</CardTitle>
-                        <CardDescription>Comparison of expected revenue from subscriptions versus collected payments.</CardDescription>
+                        <CardTitle className="flex items-center gap-2"><TrendingUp /> {t('reports.expectedRevenue')}</CardTitle>
+                        <CardDescription>{t('reports.expectedRevenueDesc')}</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <ChartContainer config={chartConfig} className="h-64 w-full">
-                           <BarChart data={expectedRevenueData} margin={{ top: 20, right: 20, bottom: 10, left: 20 }}>
+                            <BarChart data={expectedRevenueData}>
                                 <CartesianGrid vertical={false} />
-                                <XAxis dataKey="name" tickLine={false} axisLine={false} />
-                                <YAxis tickFormatter={(value) => `SAR ${value/1000}k`} />
-                                <ChartTooltip content={<ChartTooltipContent formatter={(value, name) => `SAR ${value.toLocaleString()}`} />} />
+                                <XAxis dataKey="name" />
+                                <YAxis />
+                                <ChartTooltip content={<ChartTooltipContent />} />
                                 <ChartLegend content={<ChartLegendContent />} />
-                                <Bar dataKey="expected" fill="var(--color-expected)" radius={4} />
-                                <Bar dataKey="collected" fill="var(--color-collected)" radius={4} />
+                                <Bar dataKey="expected" fill="var(--color-expected)" />
+                                <Bar dataKey="collected" fill="var(--color-collected)" />
                             </BarChart>
                         </ChartContainer>
                     </CardContent>
                 </Card>
+
+                {/* Teacher Workload */}
                 <Card className="lg:col-span-3">
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><BarChartHorizontal /> Teacher Workload</CardTitle>
-                        <CardDescription>Weekly scheduled hours per teacher, broken down by day.</CardDescription>
+                        <CardTitle className="flex items-center gap-2"><BarChartHorizontal /> {t('reports.teacherWorkload')}</CardTitle>
+                        <CardDescription>{t('reports.teacherWorkloadDesc')}</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <ChartContainer config={chartConfig} className="h-[400px] w-full">
-                            <BarChart data={teacherWorkloadData} layout="vertical" margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                            <BarChart data={teacherWorkloadData} layout="vertical">
                                 <CartesianGrid horizontal={false} />
                                 <XAxis type="number" />
-                                <YAxis type="category" dataKey="name" width={80} tickLine={false} axisLine={false} />
-                                <Tooltip content={<ChartTooltipContent />} />
+                                <YAxis type="category" dataKey="name" />
+                                <ChartTooltip content={<ChartTooltipContent />} />
                                 <Legend />
-                                <Bar dataKey="saturday" stackId="a" fill="var(--color-saturday)" name="Saturday" />
-                                <Bar dataKey="sunday" stackId="a" fill="var(--color-sunday)" name="Sunday" />
-                                <Bar dataKey="monday" stackId="a" fill="var(--color-monday)" name="Monday" />
-                                <Bar dataKey="tuesday" stackId="a" fill="var(--color-tuesday)" name="Tuesday" />
-                                <Bar dataKey="wednesday" stackId="a" fill="var(--color-wednesday)" name="Wednesday" />
-                                <Bar dataKey="thursday" stackId="a" fill="var(--color-thursday)" name="Thursday" />
+                                <Bar dataKey="saturday" stackId="a" fill="var(--color-saturday)" name={t('reports.saturday')} />
+                                <Bar dataKey="sunday" stackId="a" fill="var(--color-sunday')" name={t('reports.sunday')} />
+                                <Bar dataKey="monday" stackId="a" fill="var(--color-monday')" name={t('reports.monday')} />
+                                <Bar dataKey="tuesday" stackId="a" fill="var(--color-tuesday')" name={t('reports.tuesday')} />
+                                <Bar dataKey="wednesday" stackId="a" fill="var(--color-wednesday')" name={t('reports.wednesday')} />
+                                <Bar dataKey="thursday" stackId="a" fill="var(--color-thursday')" name={t('reports.thursday')} />
                             </BarChart>
                         </ChartContainer>
                     </CardContent>
