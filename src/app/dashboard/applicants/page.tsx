@@ -1,7 +1,7 @@
-
 "use client";
 
 import React, { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ColumnDef,
   flexRender,
@@ -48,6 +48,7 @@ const CancelApplicationDialog = ({ isOpen, onOpenChange, applicant }: { isOpen: 
 // --- Main Page Component ---
 
 function ApplicantsPageContent() {
+  const { t } = useTranslation();
   const { applicants, loading } = useApplicants();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -103,7 +104,7 @@ function ApplicantsPageContent() {
           type="checkbox"
           checked={table.getIsAllPageRowsSelected()}
           onChange={(value) => table.toggleAllPageRowsSelected(!!value.target.checked)}
-          aria-label="Select all"
+          aria-label={t('applicants.selectAll')}
           className="translate-y-[2px]"
         />
       ),
@@ -112,7 +113,7 @@ function ApplicantsPageContent() {
           type="checkbox"
           checked={row.getIsSelected()}
           onChange={(value) => row.toggleSelected(!!value.target.checked)}
-          aria-label="Select row"
+          aria-label={t('applicants.selectRow')}
           className="translate-y-[2px]"
         />
       ),
@@ -120,31 +121,31 @@ function ApplicantsPageContent() {
       enableHiding: false,
     },
     // Main Columns
-    { accessorKey: "name", header: "Name" },
-    { accessorKey: "instrumentInterest", header: "Instrument" },
+    { accessorKey: "name", header: t('applicants.name') },
+    { accessorKey: "instrumentInterest", header: t('applicants.instrument') },
     { 
       accessorKey: "status", 
-      header: "Status",
+      header: t('applicants.status'),
       cell: ({ row }) => {
         const status = row.original.status;
-        return <Badge variant={statusVariant(status)} className="capitalize">{status.replace(/-/g, ' ')}</Badge>
+        return <Badge variant={statusVariant(status)} className="capitalize">{t(`applicants.statusTypes.${status.replace(/-/g, '_')}`)}</Badge>
       }
     },
     { 
       accessorKey: "applicationDate", 
-      header: "Applied On",
+      header: t('applicants.appliedOn'),
       cell: ({ row }) => format(new Date(row.original.applicationDate), "PPP")
     },
     {
       id: "interview",
-      header: "Interview",
+      header: t('applicants.interview'),
       cell: ({ row }) => {
         const { interviewDate, interviewTime, interviewer } = row.original;
-        if (!interviewDate) return <span className="text-muted-foreground">Not Scheduled</span>;
+        if (!interviewDate) return <span className="text-muted-foreground">{t('applicants.notScheduled')}</span>;
         return (
           <div>
-            <p>{format(new Date(interviewDate), "PPP")} at {interviewTime}</p>
-            <p className="text-sm text-muted-foreground">with {interviewer}</p>
+            <p>{format(new Date(interviewDate), "PPP")} {t('applicants.at')} {interviewTime}</p>
+            <p className="text-sm text-muted-foreground">{t('applicants.with')} {interviewer}</p>
           </div>
         )
       }
@@ -161,15 +162,15 @@ function ApplicantsPageContent() {
            <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">Open menu</span>
+                <span className="sr-only">{t('applicants.openMenu')}</span>
                 <ChevronDown className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuCheckboxItem onClick={() => handleEdit(applicant)}>Edit Applicant</DropdownMenuCheckboxItem>
-              {canBeScheduled && <DropdownMenuCheckboxItem onClick={() => setIsScheduleDialogOpen(true)}>Schedule Interview</DropdownMenuCheckboxItem>}
-              {canBeEvaluated && <DropdownMenuCheckboxItem onClick={() => handleEvaluate(applicant)}>Evaluate</DropdownMenuCheckboxItem>}
-              <DropdownMenuCheckboxItem onClick={() => handleCancel(applicant)} className="text-destructive focus:text-destructive">Cancel Application</DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem onClick={() => handleEdit(applicant)}>{t('applicants.actions.editApplicant')}</DropdownMenuCheckboxItem>
+              {canBeScheduled && <DropdownMenuCheckboxItem onClick={() => setIsScheduleDialogOpen(true)}>{t('applicants.actions.scheduleInterview')}</DropdownMenuCheckboxItem>}
+              {canBeEvaluated && <DropdownMenuCheckboxItem onClick={() => handleEvaluate(applicant)}>{t('applicants.actions.evaluate')}</DropdownMenuCheckboxItem>}
+              <DropdownMenuCheckboxItem onClick={() => handleCancel(applicant)} className="text-destructive focus:text-destructive">{t('applicants.actions.cancelApplication')}</DropdownMenuCheckboxItem>
             </DropdownMenuContent>
           </DropdownMenu>
         );
@@ -210,18 +211,22 @@ function ApplicantsPageContent() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold font-headline flex items-center gap-2">
           <UserCheck className="w-8 h-8" />
-          Applicant Management
+          {t('applicants.title')}
         </h1>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setIsImportDialogOpen(true)}><Upload className="mr-2"/> Import</Button>
-          <Button onClick={handleAddNew}><PlusCircle className="mr-2" /> Add New Applicant</Button>
+          <Button variant="outline" onClick={() => setIsImportDialogOpen(true)}>
+            <Upload className="mr-2"/> {t('actions.import')}
+          </Button>
+          <Button onClick={handleAddNew}>
+            <PlusCircle className="mr-2" /> {t('applicants.addNew')}
+          </Button>
         </div>
       </div>
       
       {/* Toolbar */}
       <div className="flex items-center justify-between">
         <Input
-          placeholder="Filter by name..."
+          placeholder={t('applicants.filterByName')}
           value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
           onChange={(event) => table.getColumn("name")?.setFilterValue(event.target.value)}
           className="max-w-sm"
@@ -230,13 +235,13 @@ function ApplicantsPageContent() {
           {selectedApplicants.length > 0 && (
             <Button variant="outline" onClick={() => setIsScheduleDialogOpen(true)}>
               <CalendarPlus className="mr-2" />
-              Schedule Interview ({selectedApplicants.length})
+              {t('applicants.scheduleInterviewCount', { count: selectedApplicants.length })}
             </Button>
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="ml-auto">
-                Columns <ChevronDown className="ml-2 h-4 w-4" />
+                {t('applicants.columns')} <ChevronDown className="ml-2 h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -247,7 +252,7 @@ function ApplicantsPageContent() {
                   checked={column.getIsVisible()}
                   onCheckedChange={(value) => column.toggleVisibility(!!value)}
                 >
-                  {column.id}
+                  {t(`applicants.${column.id}`) || column.id}
                 </DropdownMenuCheckboxItem>
               ))}
             </DropdownMenuContent>
@@ -283,7 +288,7 @@ function ApplicantsPageContent() {
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No results.
+                  {t('applicants.noResults')}
                 </TableCell>
               </TableRow>
             )}
@@ -294,8 +299,10 @@ function ApplicantsPageContent() {
        {/* Pagination */}
       <div className="flex items-center justify-end space-x-2 py-4">
         <div className="flex-1 text-sm text-muted-foreground">
-          {table.getFilteredSelectedRowModel().rows.length} of{" "}
-          {table.getFilteredRowModel().rows.length} row(s) selected.
+          {t('applicants.rowsSelected', {
+            selected: table.getFilteredSelectedRowModel().rows.length,
+            total: table.getFilteredRowModel().rows.length
+          })}
         </div>
         <div className="space-x-2">
           <Button
@@ -304,7 +311,7 @@ function ApplicantsPageContent() {
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
           >
-            Previous
+            {t('applicants.previous')}
           </Button>
           <Button
             variant="outline"
@@ -312,7 +319,7 @@ function ApplicantsPageContent() {
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
           >
-            Next
+            {t('applicants.next')}
           </Button>
         </div>
       </div>

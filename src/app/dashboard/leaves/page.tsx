@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Plane, CheckCircle, XCircle, Loader2, User, Building } from "lucide-react";
@@ -468,6 +469,7 @@ function TransferStudentsDialog({
 export default function LeavesPage() {
   const { leaves, loading, updateLeave } = useDatabase();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [forceUpdate, setForceUpdate] = useState(0);
   const [leaveToTransfer, setLeaveToTransfer] = useState<Leave | null>(null);
 

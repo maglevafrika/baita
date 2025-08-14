@@ -1,8 +1,7 @@
-
-
 "use client";
 
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Bar, BarChart, Pie, PieChart, Cell, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useDatabase } from '@/context/database-context';
 import { useApplicants } from '@/context/applicants-context';
@@ -36,6 +35,7 @@ const chartConfig = {
 export default function ReportsPage() {
     const { students, semesters, loading: dbLoading } = useDatabase();
     const { applicants, loading: appLoading } = useApplicants();
+    const { t } = useTranslation();
 
     // 1. Enrollment Data
     const enrollmentData = useMemo(() => {
