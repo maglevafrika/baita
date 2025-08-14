@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -13,6 +12,7 @@ import { StudentProfileProvider, useStudentProfile } from '@/context/student-pro
 import { AddGradeDialog } from '@/components/add-grade-dialog';
 import { StudentEvaluationDialog } from '@/components/student-evaluation-dialog';
 import { UpdateLevelDialog } from '@/components/update-level-dialog';
+import { EditStudentDialog } from '@/components/edit-student-dialog'; // Add this import
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { format } from 'date-fns';
@@ -55,6 +55,7 @@ function StudentProfileContent() {
   const [isGradeDialogOpen, setIsGradeDialogOpen] = useState(false);
   const [isEvaluationDialogOpen, setIsEvaluationDialogOpen] = useState(false);
   const [isLevelDialogOpen, setIsLevelDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false); // Add this state
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
   const isManarHLD = user?.username === 'manar' && user?.activeRole === 'high-level-dashboard';
@@ -124,7 +125,10 @@ function StudentProfileContent() {
                   <span>{student.enrollmentDate ? format(new Date(student.enrollmentDate), 'PPP') : 'N/A'}</span>
               </div>
             </CardContent>
-            <CardFooter>
+            <CardFooter className="flex flex-col gap-2">
+                <Button variant="secondary" className="w-full" onClick={() => setIsEditDialogOpen(true)}>
+                    <Edit className="mr-2"/> Edit Profile
+                </Button>
                 <Button variant="destructive" className="w-full" onClick={() => setIsDeleteDialogOpen(true)}>
                     <Trash2 className="mr-2"/> Delete Student
                 </Button>
@@ -290,6 +294,15 @@ function StudentProfileContent() {
         isOpen={isLevelDialogOpen}
         onOpenChange={setIsLevelDialogOpen}
         currentLevel={student.level}
+      />
+      <EditStudentDialog
+        student={student}
+        isOpen={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        onSuccess={() => {
+          // Optionally refresh the student data here
+          // You might want to call a refresh function from your context
+        }}
       />
       {student && (
         <DeleteStudentDialog 
