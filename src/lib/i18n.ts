@@ -207,7 +207,7 @@ const resources = {
           sessionNotFound: "Session {{sessionId}} not found in schedule."
         }
       },
-      leaves: {
+      leavesPage: {
         title: "Leave Management",
         description: "View and manage all leave requests for students and teachers.",
         newRequest: "New Leave Request",
@@ -234,7 +234,7 @@ const resources = {
         confirmTransfers: "Confirm Transfers & Approve",
         cancel: "Cancel"
       },
-      reportsPage: {
+      reports: {
         title: "Reports & Analytics",
         enrollmentTrends: "Student Enrollment Trends",
         enrollmentDescription: "New student enrollments per month.",
@@ -251,7 +251,7 @@ const resources = {
         teacherWorkload: "Teacher Workload",
         teacherWorkloadDescription: "Weekly scheduled hours per teacher, broken down by day."
       },
-      exclusions: {
+      exclusionsPage: {
         title: "Exclusion Rules",
         description: "Select a semester to view or modify its scheduling exclusion rules.",
         addNew: "Add Exclusion Rule",
@@ -479,7 +479,7 @@ const resources = {
           sessionNotFound: "الجلسة {{sessionId}} غير موجودة في الجدول."
         }
       },
-      leaves: {
+      leavesPage: {
         title: "إدارة الإجازات",
         description: "عرض وإدارة جميع طلبات الإجازات للطلاب والمدرسين.",
         newRequest: "طلب إجازة جديد",
@@ -506,7 +506,7 @@ const resources = {
         confirmTransfers: "تأكيد النقل والموافقة",
         cancel: "إلغاء"
       },
-      reportsPage: {
+      reports: {
         title: "التقارير والتحليلات",
         enrollmentTrends: "اتجاهات تسجيل الطلاب",
         enrollmentDescription: "عدد الطلاب الجدد المسجلين شهرياً.",
@@ -523,7 +523,7 @@ const resources = {
         teacherWorkload: "عبء عمل المدرسين",
         teacherWorkloadDescription: "ساعات العمل الأسبوعية لكل مدرس، مفصلة حسب اليوم."
       },
-      exclusions: {
+      exclusionsPage: {
         title: "قواعد الاستثناء",
         description: "اختر فصل دراسي لعرض أو تعديل قواعد الاستثناء الخاصة به.",
         addNew: "إضافة قاعدة استثناء",
