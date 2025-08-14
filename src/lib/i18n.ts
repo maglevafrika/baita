@@ -39,7 +39,8 @@ const resources = {
         error: "Error",
         success: "Success",
         loading: "Loading...",
-        na: "N/A"
+        na: "N/A",
+        edit: "Edit"
       },
       days: {
         all: "All",
@@ -80,7 +81,10 @@ const resources = {
         enrollStudent: "Enroll Student",
         import: "Import",
         exportPDF: "Export PDF",
-        exportCSV: "Export CSV"
+        exportCSV: "Export CSV",
+        addNewUser: "Add New User",
+        importStudents: "Import Students",
+        addNewStudent: "Add New Student"
       },
       applicants: {
         title: "Applicant Management",
@@ -269,44 +273,48 @@ const resources = {
         "45plus": "45+",
         revenue: "Revenue"
       },
-          exclusionsPage: {
-              title: "Exclusion Rules",
-              description: "Select a semester to view or modify its scheduling exclusion rules.",
-              addNew: "Add Exclusion Rule",
-              addNewTitle: "Add New Exclusion Rule",
-              addNewDescription: "Prevent two individuals from being scheduled in the same class.",
-              manageExclusions: "Manage Exclusions",
-              exclusionListFor: "Exclusion List for",
-              ruleType: "Rule Type",
-              selectRuleType: "Select a rule type...",
-              teacherStudent: "Teacher vs. Student",
-              studentStudent: "Student vs. Student",
-              select: "Select...",
-              student1: "Student 1",
-              student2: "Student",
-              reason: "Reason",
-              reasonPlaceholder: "Provide a reason for this exclusion rule...",
-              save: "Save Rule",
-              noRules: "No exclusion rules have been set for this semester.",
-              ruleAdded: "Exclusion Rule Added",
-              ruleAddedDescription: "The new rule has been saved.",
-              ruleRemoved: "Exclusion Removed",
-              ruleRemovedDescription: "The rule has been successfully deleted.",
-              // Error messages
-              selectFirstPerson: "Please select the first person.",
-              selectSecondPerson: "Please select the second person.",
-              reasonMinLength: "Reason must be at least 10 characters.",
-              cannotSelectSamePerson: "You cannot select the same person twice.",
-              semesterIdMissing: "Semester ID is missing.",
-              addRuleError: "Failed to add exclusion rule. Please try again.",
-              deleteRuleError: "Failed to delete exclusion rule. Please try again."
-          },
-          usersPage: {
+      exclusionsPage: {
+        title: "Exclusion Rules",
+        description: "Select a semester to view or modify its scheduling exclusion rules.",
+        addNew: "Add Exclusion Rule",
+        addNewTitle: "Add New Exclusion Rule",
+        addNewDescription: "Prevent two individuals from being scheduled in the same class.",
+        manageExclusions: "Manage Exclusions",
+        exclusionListFor: "Exclusion List for",
+        ruleType: "Rule Type",
+        selectRuleType: "Select a rule type...",
+        teacherStudent: "Teacher vs. Student",
+        studentStudent: "Student vs. Student",
+        select: "Select...",
+        student1: "Student 1",
+        student2: "Student",
+        reason: "Reason",
+        reasonPlaceholder: "Provide a reason for this exclusion rule...",
+        save: "Save Rule",
+        noRules: "No exclusion rules have been set for this semester.",
+        ruleAdded: "Exclusion Rule Added",
+        ruleAddedDescription: "The new rule has been saved.",
+        ruleRemoved: "Exclusion Removed",
+        ruleRemovedDescription: "The rule has been successfully deleted.",
+        selectFirstPerson: "Please select the first person.",
+        selectSecondPerson: "Please select the second person.",
+        reasonMinLength: "Reason must be at least 10 characters.",
+        cannotSelectSamePerson: "You cannot select the same person twice.",
+        semesterIdMissing: "Semester ID is missing.",
+        addRuleError: "Failed to add exclusion rule. Please try again.",
+        deleteRuleError: "Failed to delete exclusion rule. Please try again."
+      },
+      usersPage: {
         title: "User Management",
         addNewUser: "Add New User",
         editUser: "Edit User",
         deleteUser: "Delete User",
         noUsers: "No users found. Add one to get started.",
+        allUsersTitle: "All Users",
+        allUsersDescription: "Manage system users and their permissions.",
+        name: "Name",
+        username: "Username",
+        actions: "Actions",
         roles: {
           admin: "Admin",
           teacher: "Teacher",
@@ -320,7 +328,19 @@ const resources = {
         editStudent: "Edit Student",
         deleteStudent: "Delete Student",
         noStudents: "No students found. Add one to get started.",
-        enrolledIn: "Enrolled in {{count}} course(s)"
+        enrolledIn: "Enrolled in {{count}} course(s)",
+        addStudentTitle: "Add New Student",
+        addStudentDescription: "Add a new student to the system with their details.",
+        allStudentsTitle: "All Students",
+        searchPlaceholder: "Search students...",
+        filterByLevel: "Filter by level",
+        allLevels: "All Levels",
+        name: "Name",
+        level: "Level",
+        actions: "Actions",
+        sessions: "{{count}} session(s)",
+        viewProfile: "View Profile",
+        noStudentsFound: "No students found."
       },
       semestersPage: {
         title: "Semester Management",
@@ -656,8 +676,19 @@ const resources = {
             editSemester: "تعديل الفصل الدراسي",
             noSemesters: "لا توجد فصول دراسية. أضف واحداً للبدء.",
             teachersCount: "{{count}} مدرس(مدرسين)"
-        }
-        }
+        },
+        
+        
+        i18n: {
+            title: "إدارة الترجمة",
+            addNewTranslation: "إضافة ترجمة جديدة",
+            editTranslation: "تعديل الترجمة",
+            deleteTranslation: "حذف الترجمة",
+            noTranslations: "لا توجد ترجمات. أضف واحدة للبدء."
+        },
+        
+    }
+
   }
 };
 
