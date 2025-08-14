@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,25 +19,28 @@ import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 // Add Exclusion Dialog Component
-const exclusionSchema = z.object({
-  type: z.enum(['teacher-student', 'student-student'], { required_error: "Please select a rule type." }),
-  person1Id: z.string().min(1, "Please select the first person."),
-  person2Id: z.string().min(1, "Please select the second person."),
-  reason: z.string().min(10, "Reason must be at least 10 characters."),
-}).refine(data => data.person1Id !== data.person2Id, {
-    message: "You cannot select the same person twice.",
-    path: ["person2Id"],
-});
-
-type ExclusionFormValues = z.infer<typeof exclusionSchema>;
-
 function AddExclusionDialog({ semester, onExclusionAdded }: { semester: Semester, onExclusionAdded: () => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const { addIncompatibility, students } = useDatabase();
   const { users } = useAuth();
+  const { t } = useTranslation();
+  
   const teachers = users.filter(u => u.roles.includes('teacher'));
+
+  // Define schema with translated error messages
+  const exclusionSchema = z.object({
+    type: z.enum(['teacher-student', 'student-student'], { required_error: t('exclusionsPage.selectRuleType') }),
+    person1Id: z.string().min(1, t('exclusionsPage.selectFirstPerson')),
+    person2Id: z.string().min(1, t('exclusionsPage.selectSecondPerson')),
+    reason: z.string().min(10, t('exclusionsPage.reasonMinLength')),
+  }).refine(data => data.person1Id !== data.person2Id, {
+      message: t('exclusionsPage.cannotSelectSamePerson'),
+      path: ["person2Id"],
+  });
+
+  type ExclusionFormValues = z.infer<typeof exclusionSchema>;
 
   const form = useForm<ExclusionFormValues>({
     resolver: zodResolver(exclusionSchema),
@@ -50,14 +54,14 @@ function AddExclusionDialog({ semester, onExclusionAdded }: { semester: Semester
     if(student) return student.name;
     const teacher = teachers.find(t => t.id === id);
     if(teacher) return teacher.name;
-    return 'Unknown';
+    return t('common.unknown');
   }
 
   const onSubmit = async (data: ExclusionFormValues) => {
     if (!semester.id) {
       toast({
-        title: "Error",
-        description: "Semester ID is missing.",
+        title: t('common.error'),
+        description: t('exclusionsPage.semesterIdMissing'),
         variant: "destructive",
       });
       return;
@@ -78,15 +82,18 @@ function AddExclusionDialog({ semester, onExclusionAdded }: { semester: Semester
 
       await addIncompatibility(newIncompatibility);
       
-      toast({ title: "Exclusion Rule Added", description: "The new rule has been saved." });
+      toast({ 
+        title: t('exclusionsPage.ruleAdded'), 
+        description: t('exclusionsPage.ruleAddedDescription') 
+      });
       onExclusionAdded();
       setIsOpen(false);
       form.reset();
     } catch (error) {
       console.error('Error adding incompatibility:', error);
       toast({
-        title: "Error",
-        description: "Failed to add exclusion rule. Please try again.",
+        title: t('common.error'),
+        description: t('exclusionsPage.addRuleError'),
         variant: "destructive",
       });
     } finally {
@@ -101,55 +108,97 @@ function AddExclusionDialog({ semester, onExclusionAdded }: { semester: Semester
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button>
-          <PlusCircle className="mr-2" /> Add Exclusion Rule
+          <PlusCircle className="mr-2" /> {t('exclusionsPage.addNew')}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add New Exclusion Rule</DialogTitle>
+          <DialogTitle>{t('exclusionsPage.addNewTitle')}</DialogTitle>
           <DialogDescription>
-            Prevent two individuals from being scheduled in the same class.
+            {t('exclusionsPage.addNewDescription')}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
              <FormField control={form.control} name="type" render={({ field }) => (
-                <FormItem><FormLabel>Rule Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Select a rule type..." /></SelectTrigger></FormControl>
+                <FormItem>
+                  <FormLabel>{t('exclusionsPage.ruleType')}</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder={t('exclusionsPage.selectRuleType')} />
+                      </SelectTrigger>
+                    </FormControl>
                     <SelectContent>
-                        <SelectItem value="teacher-student">Teacher vs. Student</SelectItem>
-                        <SelectItem value="student-student">Student vs. Student</SelectItem>
+                        <SelectItem value="teacher-student">{t('exclusionsPage.teacherStudent')}</SelectItem>
+                        <SelectItem value="student-student">{t('exclusionsPage.studentStudent')}</SelectItem>
                     </SelectContent>
-                </Select><FormMessage /></FormItem>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
             )} />
             
             {ruleType && (
                 <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="person1Id" render={({ field }) => (
-                        <FormItem><FormLabel>{ruleType === 'teacher-student' ? 'Teacher' : 'Student 1'}</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger></FormControl>
-                            <SelectContent><ScrollArea className="h-48">{person1Options.map(p => <SelectItem key={p.id} value={p.id!}>{p.name}</SelectItem>)}</ScrollArea></SelectContent>
-                        </Select><FormMessage /></FormItem>
+                        <FormItem>
+                          <FormLabel>
+                            {ruleType === 'teacher-student' ? t('requests.labels.teacher') : t('exclusionsPage.student1')}
+                          </FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder={t('exclusionsPage.select')} />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <ScrollArea className="h-48">
+                                {person1Options.map(p => (
+                                  <SelectItem key={p.id} value={p.id!}>{p.name}</SelectItem>
+                                ))}
+                              </ScrollArea>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
                     )} />
                     <FormField control={form.control} name="person2Id" render={({ field }) => (
-                        <FormItem><FormLabel>Student</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger></FormControl>
-                            <SelectContent><ScrollArea className="h-48">{person2Options.filter(s => s.id !== person1Id).map(p => <SelectItem key={p.id} value={p.id!}>{p.name}</SelectItem>)}</ScrollArea></SelectContent>
-                        </Select><FormMessage /></FormItem>
+                        <FormItem>
+                          <FormLabel>{t('exclusionsPage.student2')}</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder={t('exclusionsPage.select')} />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <ScrollArea className="h-48">
+                                {person2Options.filter(s => s.id !== person1Id).map(p => (
+                                  <SelectItem key={p.id} value={p.id!}>{p.name}</SelectItem>
+                                ))}
+                              </ScrollArea>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
                     )} />
                 </div>
             )}
             
             <FormField control={form.control} name="reason" render={({ field }) => (
-                <FormItem><FormLabel>Reason</FormLabel><FormControl>
-                    <Textarea placeholder="Provide a reason for this exclusion rule..." {...field} />
-                </FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>{t('exclusionsPage.reason')}</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder={t('exclusionsPage.reasonPlaceholder')} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
             )} />
 
             <DialogFooter>
               <Button type="submit" disabled={isLoading || !ruleType}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Rule
+                {t('exclusionsPage.save')}
               </Button>
             </DialogFooter>
           </form>
@@ -163,6 +212,7 @@ function AddExclusionDialog({ semester, onExclusionAdded }: { semester: Semester
 export default function ExclusionsPage() {
   const { semesters, incompatibilities, loading: dbLoading, deleteIncompatibility } = useDatabase();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [selectedSemesterId, setSelectedSemesterId] = useState<string | null>(null);
   
   const selectedSemester = useMemo(() => {
@@ -184,12 +234,15 @@ export default function ExclusionsPage() {
   const handleDeleteExclusion = async (exclusionId: string) => {
     try {
       await deleteIncompatibility(exclusionId);
-      toast({ title: "Exclusion Removed", description: "The rule has been successfully deleted." });
+      toast({ 
+        title: t('exclusionsPage.ruleRemoved'), 
+        description: t('exclusionsPage.ruleRemovedDescription') 
+      });
     } catch (error) {
       console.error('Error deleting incompatibility:', error);
       toast({
-        title: "Error",
-        description: "Failed to delete exclusion rule. Please try again.",
+        title: t('common.error'),
+        description: t('exclusionsPage.deleteRuleError'),
         variant: "destructive",
       });
     }
@@ -208,15 +261,15 @@ export default function ExclusionsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold font-headline flex items-center gap-2">
           <CircleSlash className="w-8 h-8" />
-          Exclusion Rules
+          {t('exclusionsPage.title')}
         </h1>
         {selectedSemester && <AddExclusionDialog semester={selectedSemester} onExclusionAdded={onExclusionAdded}/>}
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Manage Exclusions</CardTitle>
-          <CardDescription>Select a semester to view or modify its scheduling exclusion rules.</CardDescription>
+          <CardTitle>{t('exclusionsPage.manageExclusions')}</CardTitle>
+          <CardDescription>{t('exclusionsPage.description')}</CardDescription>
         </CardHeader>
         <CardContent>
           {dbLoading ? (
@@ -226,7 +279,7 @@ export default function ExclusionsPage() {
           ) : (
             <Select value={selectedSemesterId ?? ""} onValueChange={setSelectedSemesterId}>
               <SelectTrigger className="w-full md:w-1/3">
-                <SelectValue placeholder="Select a semester" />
+                <SelectValue placeholder={t('dashboard.selectSemester')} />
               </SelectTrigger>
               <SelectContent>
                 {semesters.map(s => <SelectItem key={s.id} value={s.id!}>{s.name}</SelectItem>)}
@@ -239,7 +292,7 @@ export default function ExclusionsPage() {
       {selectedSemester && (
         <Card>
           <CardHeader>
-            <CardTitle>Exclusion List for {selectedSemester.name}</CardTitle>
+            <CardTitle>{t('exclusionsPage.exclusionListFor')} {selectedSemester.name}</CardTitle>
           </CardHeader>
           <CardContent>
             {selectedSemesterIncompatibilities && selectedSemesterIncompatibilities.length > 0 ? (
@@ -262,7 +315,7 @@ export default function ExclusionsPage() {
                     ))}
                 </ul>
             ) : (
-                <p className="text-center text-muted-foreground py-8">No exclusion rules have been set for this semester.</p>
+                <p className="text-center text-muted-foreground py-8">{t('exclusionsPage.noRules')}</p>
             )}
           </CardContent>
         </Card>
