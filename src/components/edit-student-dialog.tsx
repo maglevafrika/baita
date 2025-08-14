@@ -57,13 +57,12 @@ export function EditStudentDialog({
     nationality: '',
     instrumentInterest: '',
     level: '',
-    paymentPlan: '',
+    paymentPlan: 'none',
     subscriptionStartDate: '',
     phone: '',
     email: ''
   });
 
-  // Initialize form data when student changes
   useEffect(() => {
     if (student) {
       setFormData({
@@ -84,7 +83,6 @@ export function EditStudentDialog({
   const handleSubmit = async () => {
     if (!student) return;
 
-    // Basic validation
     if (!formData.name.trim()) {
       toast({
         title: "Validation Error",
@@ -105,10 +103,9 @@ export function EditStudentDialog({
 
     setLoading(true);
     try {
-      // Prepare the updated student data
       const updatedStudentData: Partial<StudentProfile> = {
         name: formData.name.trim(),
-        gender: formData.gender as 'male' | 'female' | undefined,
+        gender: formData.gender === "male" || formData.gender === "female" ? formData.gender : undefined,
         dob: formData.dob || undefined,
         nationality: formData.nationality || undefined,
         instrumentInterest: formData.instrumentInterest || undefined,
@@ -122,23 +119,6 @@ export function EditStudentDialog({
         updatedAt: new Date().toISOString()
       };
 
-      // Here you would make your API call to update the student
-      // Example API call (replace with your actual implementation):
-      /*
-      const response = await fetch(`/api/students/${student.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedStudentData),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update student');
-      }
-      */
-
-      // For now, simulate the API call
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       toast({
@@ -164,12 +144,11 @@ export function EditStudentDialog({
   const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData(prev => ({
       ...prev,
-      [field]: value
+      [field]: value === "not_specified" ? "" : value
     }));
   };
 
   const handleCancel = () => {
-    // Reset form data to original values
     if (student) {
       setFormData({
         name: student.name || '',
@@ -199,33 +178,31 @@ export function EditStudentDialog({
         </DialogHeader>
         
         <div className="space-y-6 py-4">
-          {/* Basic Information Section */}
+          {/* Basic Information */}
           <div className="space-y-4">
-            <h3 className="text-lg font-medium text-foreground border-b pb-2">
-              Basic Information
-            </h3>
+            <h3 className="text-lg font-medium border-b pb-2">Basic Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="name" className="text-sm font-medium">
-                  Full Name <span className="text-red-500">*</span>
-                </Label>
+                <Label htmlFor="name">Full Name <span className="text-red-500">*</span></Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
                   placeholder="Enter student's full name"
-                  className="w-full"
                 />
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="gender" className="text-sm font-medium">Gender</Label>
-                <Select value={formData.gender} onValueChange={(value) => handleInputChange('gender', value)}>
+                <Label htmlFor="gender">Gender</Label>
+                <Select 
+                  value={formData.gender || "not_specified"} 
+                  onValueChange={(value) => handleInputChange('gender', value)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select gender" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Not specified</SelectItem>
+                    <SelectItem value="not_specified">Not specified</SelectItem>
                     <SelectItem value="male">Male</SelectItem>
                     <SelectItem value="female">Female</SelectItem>
                   </SelectContent>
@@ -233,70 +210,63 @@ export function EditStudentDialog({
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="dob" className="text-sm font-medium">Date of Birth</Label>
+                <Label htmlFor="dob">Date of Birth</Label>
                 <Input
                   id="dob"
                   type="date"
                   value={formData.dob}
                   onChange={(e) => handleInputChange('dob', e.target.value)}
-                  className="w-full"
                 />
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="nationality" className="text-sm font-medium">Nationality</Label>
+                <Label htmlFor="nationality">Nationality</Label>
                 <Input
                   id="nationality"
                   value={formData.nationality}
                   onChange={(e) => handleInputChange('nationality', e.target.value)}
                   placeholder="e.g., Saudi Arabian"
-                  className="w-full"
                 />
               </div>
             </div>
           </div>
 
-          {/* Academic Information Section */}
+          {/* Academic Information */}
           <div className="space-y-4">
-            <h3 className="text-lg font-medium text-foreground border-b pb-2">
-              Academic Information
-            </h3>
+            <h3 className="text-lg font-medium border-b pb-2">Academic Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="instrumentInterest" className="text-sm font-medium">Instrument</Label>
+                <Label htmlFor="instrumentInterest">Instrument</Label>
                 <Input
                   id="instrumentInterest"
                   value={formData.instrumentInterest}
                   onChange={(e) => handleInputChange('instrumentInterest', e.target.value)}
                   placeholder="e.g., Piano, Guitar, Violin"
-                  className="w-full"
                 />
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="level" className="text-sm font-medium">
-                  Current Level <span className="text-red-500">*</span>
-                </Label>
+                <Label htmlFor="level">Current Level <span className="text-red-500">*</span></Label>
                 <Input
                   id="level"
                   value={formData.level}
                   onChange={(e) => handleInputChange('level', e.target.value)}
                   placeholder="e.g., Beginner, Intermediate, Advanced"
-                  className="w-full"
                 />
               </div>
             </div>
           </div>
 
-          {/* Payment Information Section */}
+          {/* Payment Information */}
           <div className="space-y-4">
-            <h3 className="text-lg font-medium text-foreground border-b pb-2">
-              Payment Information
-            </h3>
+            <h3 className="text-lg font-medium border-b pb-2">Payment Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="paymentPlan" className="text-sm font-medium">Payment Plan</Label>
-                <Select value={formData.paymentPlan} onValueChange={(value) => handleInputChange('paymentPlan', value)}>
+                <Label htmlFor="paymentPlan">Payment Plan</Label>
+                <Select 
+                  value={formData.paymentPlan} 
+                  onValueChange={(value) => handleInputChange('paymentPlan', value)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select payment plan" />
                   </SelectTrigger>
@@ -310,46 +280,39 @@ export function EditStudentDialog({
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="subscriptionStartDate" className="text-sm font-medium">
-                  Subscription Start Date
-                </Label>
+                <Label htmlFor="subscriptionStartDate">Subscription Start Date</Label>
                 <Input
                   id="subscriptionStartDate"
                   type="date"
                   value={formData.subscriptionStartDate}
                   onChange={(e) => handleInputChange('subscriptionStartDate', e.target.value)}
-                  className="w-full"
                 />
               </div>
             </div>
           </div>
 
-          {/* Contact Information Section */}
+          {/* Contact Information */}
           <div className="space-y-4">
-            <h3 className="text-lg font-medium text-foreground border-b pb-2">
-              Contact Information
-            </h3>
+            <h3 className="text-lg font-medium border-b pb-2">Contact Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="phone" className="text-sm font-medium">Phone Number</Label>
+                <Label htmlFor="phone">Phone Number</Label>
                 <Input
                   id="phone"
                   value={formData.phone}
                   onChange={(e) => handleInputChange('phone', e.target.value)}
                   placeholder="e.g., +966 50 123 4567"
-                  className="w-full"
                 />
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium">Email Address</Label>
+                <Label htmlFor="email">Email Address</Label>
                 <Input
                   id="email"
                   type="email"
                   value={formData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
                   placeholder="student@example.com"
-                  className="w-full"
                 />
               </div>
             </div>
