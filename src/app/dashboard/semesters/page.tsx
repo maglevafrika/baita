@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Calendar, Edit, Loader2 } from "lucide-react";
@@ -9,8 +8,10 @@ import { Semester } from "@/lib/types";
 import { useDatabase } from '@/context/database-context';
 import { SemesterDialog } from '@/components/semester-dialog';
 import { format } from 'date-fns';
+import { useTranslation } from "react-i18next"; // ✅ Added
 
 export default function SemestersPage() {
+  const { t } = useTranslation(); // ✅ Added
   const { semesters, loading } = useDatabase();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedSemester, setSelectedSemester] = useState<Semester | null>(null);
@@ -35,10 +36,10 @@ export default function SemestersPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold font-headline flex items-center gap-2">
           <Calendar className="w-8 h-8" />
-          Semester Management
+          {t("semestersPage.title")}
         </h1>
         <Button onClick={handleAddNew}>
-          <PlusCircle className="mr-2 h-4 w-4" /> Add New Semester
+          <PlusCircle className="mr-2 h-4 w-4" /> {t("semestersPage.addNewSemester")}
         </Button>
       </div>
 
@@ -58,18 +59,22 @@ export default function SemestersPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-muted-foreground">{semester.teachers?.length || 0} Teachers</p>
+                  <p className="text-sm text-muted-foreground">
+                    {t("semestersPage.teachersCount", { count: semester.teachers?.length || 0 })}
+                  </p>
                 </CardContent>
                 <CardFooter>
                   <Button variant="outline" size="sm" onClick={() => handleEdit(semester)}>
                     <Edit className="mr-2 h-4 w-4" />
-                    Edit Semester
+                    {t("semestersPage.editSemester")}
                   </Button>
                 </CardFooter>
               </Card>
             ))
           ) : (
-            <p className="text-muted-foreground col-span-full text-center">No semesters found. Add one to get started.</p>
+            <p className="text-muted-foreground col-span-full text-center">
+              {t("semestersPage.noSemesters")}
+            </p>
           )}
         </div>
       )}

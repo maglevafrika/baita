@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,8 +14,10 @@ import { AddStudentForm } from "@/components/add-student-form";
 import { useDatabase } from "@/context/database-context";
 import { DeleteStudentDialog } from "@/components/delete-student-dialog";
 import { ImportStudentsDialog } from "@/components/import-students-dialog";
+import { useTranslation } from "react-i18next"; // ✅ Added
 
 export default function StudentsPage() {
+  const { t } = useTranslation(); // ✅ Added
   const { students, loading } = useDatabase();
   const [searchTerm, setSearchTerm] = useState("");
   const [levelFilter, setLevelFilter] = useState("all");
@@ -49,51 +50,50 @@ export default function StudentsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold font-headline flex items-center gap-2">
-            <Users className="w-8 h-8" />
-            Student Management
+          <Users className="w-8 h-8" />
+          {t("nav.students")}
         </h1>
         <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setIsImportStudentOpen(true)}>
-                <Upload className="mr-2 h-4 w-4" /> Import Students
-            </Button>
-            <Dialog open={isAddStudentOpen} onOpenChange={setAddStudentOpen}>
-                <DialogTrigger asChild>
-                    <Button>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add New Student
-                    </Button>
-                </DialogTrigger>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Add a New Student</DialogTitle>
-                        <DialogDescription>
-                            Enter the details for the new student. An ID will be generated automatically.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <AddStudentForm onSuccess={() => setAddStudentOpen(false)} />
-                </DialogContent>
-            </Dialog>
+          <Button variant="outline" onClick={() => setIsImportStudentOpen(true)}>
+            <Upload className="mr-2 h-4 w-4" /> {t("actions.importStudents")}
+          </Button>
+          <Dialog open={isAddStudentOpen} onOpenChange={setAddStudentOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <PlusCircle className="mr-2 h-4 w-4" /> {t("actions.addNewStudent")}
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t("studentsPage.addStudentTitle")}</DialogTitle>
+                <DialogDescription>
+                  {t("studentsPage.addStudentDescription")}
+                </DialogDescription>
+              </DialogHeader>
+              <AddStudentForm onSuccess={() => setAddStudentOpen(false)} />
+            </DialogContent>
+          </Dialog>
         </div>
-
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>All Students</CardTitle>
+          <CardTitle>{t("studentsPage.allStudentsTitle")}</CardTitle>
           <div className="pt-4 flex flex-col md:flex-row gap-4">
             <Input
-              placeholder="Search by student name..."
+              placeholder={t("studentsPage.searchPlaceholder")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="max-w-sm"
             />
             <Select value={levelFilter} onValueChange={setLevelFilter}>
               <SelectTrigger className="w-full md:w-[180px]">
-                <SelectValue placeholder="Filter by level" />
+                <SelectValue placeholder={t("studentsPage.filterByLevel")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Levels</SelectItem>
+                <SelectItem value="all">{t("studentsPage.allLevels")}</SelectItem>
                 {uniqueLevels.map(level => (
-                    <SelectItem key={level} value={level}>{level}</SelectItem>
+                  <SelectItem key={level} value={level}>{level}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -101,58 +101,65 @@ export default function StudentsPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-             <div className="flex justify-center items-center h-64">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-             </div>
+            <div className="flex justify-center items-center h-64">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
           ) : (
             <div className="border rounded-lg overflow-hidden">
-                <Table>
+              <Table>
                 <TableHeader>
-                    <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Level</TableHead>
-                    <TableHead>Enrolled In</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
+                  <TableRow>
+                    <TableHead>{t("studentsPage.name")}</TableHead>
+                    <TableHead>{t("studentsPage.level")}</TableHead>
+                    <TableHead>{t("studentsPage.enrolledIn")}</TableHead>
+                    <TableHead className="text-right">{t("studentsPage.actions")}</TableHead>
+                  </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {filteredStudents.length > 0 ? (
-                        filteredStudents.map((student: StudentProfile) => (
-                        <TableRow key={student.id}>
-                            <TableCell className="font-medium">{student.name}</TableCell>
-                            <TableCell>{student.level}</TableCell>
-                            <TableCell>{student.enrolledIn.length} Session(s)</TableCell>
-                            <TableCell className="text-right flex items-center justify-end gap-2">
-                            <Button asChild variant="outline" size="sm">
-                                <Link href={`/dashboard/students/${student.id}`}>
-                                View Profile <ExternalLink className="ml-2 h-3 w-3" />
-                                </Link>
-                            </Button>
-                             <Button variant="destructive" size="icon" className="h-8 w-8" onClick={() => setStudentToDelete(student)}>
-                                <Trash2 className="h-4 w-4" />
-                             </Button>
-                            </TableCell>
-                        </TableRow>
-                        ))
-                    ) : (
-                        <TableRow>
-                            <TableCell colSpan={4} className="h-24 text-center">
-                                No students found.
-                            </TableCell>
-                        </TableRow>
-                    )}
+                  {filteredStudents.length > 0 ? (
+                    filteredStudents.map((student: StudentProfile) => (
+                      <TableRow key={student.id}>
+                        <TableCell className="font-medium">{student.name}</TableCell>
+                        <TableCell>{student.level}</TableCell>
+                        <TableCell>
+                          {t("studentsPage.sessions", { count: student.enrolledIn.length })}
+                        </TableCell>
+                        <TableCell className="text-right flex items-center justify-end gap-2">
+                          <Button asChild variant="outline" size="sm">
+                            <Link href={`/dashboard/students/${student.id}`}>
+                              {t("studentsPage.viewProfile")} <ExternalLink className="ml-2 h-3 w-3" />
+                            </Link>
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => setStudentToDelete(student)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4} className="h-24 text-center">
+                        {t("studentsPage.noStudentsFound")}
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
-                </Table>
+              </Table>
             </div>
           )}
         </CardContent>
       </Card>
-      
+
       {studentToDelete && (
-        <DeleteStudentDialog 
-            student={studentToDelete}
-            isOpen={!!studentToDelete}
-            onOpenChange={() => setStudentToDelete(null)}
+        <DeleteStudentDialog
+          student={studentToDelete}
+          isOpen={!!studentToDelete}
+          onOpenChange={() => setStudentToDelete(null)}
         />
       )}
 

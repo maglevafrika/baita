@@ -300,7 +300,35 @@ const resources = {
               semesterIdMissing: "Semester ID is missing.",
               addRuleError: "Failed to add exclusion rule. Please try again.",
               deleteRuleError: "Failed to delete exclusion rule. Please try again."
-          }
+          },
+          usersPage: {
+        title: "User Management",
+        addNewUser: "Add New User",
+        editUser: "Edit User",
+        deleteUser: "Delete User",
+        noUsers: "No users found. Add one to get started.",
+        roles: {
+          admin: "Admin",
+          teacher: "Teacher",
+          student: "Student",
+          staff: "Staff"
+        }
+      },
+      studentsPage: {
+        title: "Student Management",
+        addNewStudent: "Add New Student",
+        editStudent: "Edit Student",
+        deleteStudent: "Delete Student",
+        noStudents: "No students found. Add one to get started.",
+        enrolledIn: "Enrolled in {{count}} course(s)"
+      },
+      semestersPage: {
+        title: "Semester Management",
+        addNewSemester: "Add New Semester",
+        editSemester: "Edit Semester",
+        noSemesters: "No semesters found. Add one to get started.",
+        teachersCount: "{{count}} Teachers"
+      }
     }
   },
   ar: {
@@ -600,8 +628,36 @@ const resources = {
   semesterIdMissing: "معرف الفصل الدراسي مفقود.",
   addRuleError: "فشل في إضافة قاعدة الاستثناء. يرجى المحاولة مرة أخرى.",
   deleteRuleError: "فشل في حذف قاعدة الاستثناء. يرجى المحاولة مرة أخرى."
-}
-    }
+},
+        usersPage: {
+            title: "إدارة المستخدمين",
+            addNewUser: "إضافة مستخدم جديد",
+            editUser: "تعديل المستخدم",
+            deleteUser: "حذف المستخدم",
+            noUsers: "لا توجد مستخدمين. أضف واحداً للبدء.",
+            roles: {
+            admin: "مدير",
+            teacher: "مدرس",
+            student: "طالب",
+            staff: "موظف"
+            }
+        },
+        studentsPage: {
+            title: "إدارة الطلاب",
+            addNewStudent: "إضافة طالب جديد",
+            editStudent: "تعديل الطالب",
+            deleteStudent: "حذف الطالب",
+            noStudents: "لا توجد طلاب. أضف واحداً للبدء.",
+            enrolledIn: "مسجل في {{count}} دورة(دورات)"
+        },
+        semestersPage: {
+            title: "إدارة الفصول الدراسية",
+            addNewSemester: "إضافة فصل دراسي جديد",
+            editSemester: "تعديل الفصل الدراسي",
+            noSemesters: "لا توجد فصول دراسية. أضف واحداً للبدء.",
+            teachersCount: "{{count}} مدرس(مدرسين)"
+        }
+        }
   }
 };
 

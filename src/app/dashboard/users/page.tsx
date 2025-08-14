@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -10,8 +9,10 @@ import { useAuth } from "@/context/auth-context";
 import { UserInDb, Role } from "@/lib/types";
 import { UserDialog } from "@/components/user-dialog";
 import { Badge } from "@/components/ui/badge";
+import { useTranslation } from "react-i18next"; // ✅ Added
 
 export default function UsersPage() {
+  const { t } = useTranslation(); // ✅ Added
   const { users } = useAuth();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserInDb | null>(null);
@@ -46,18 +47,18 @@ export default function UsersPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold font-headline flex items-center gap-2">
           <Users className="w-8 h-8" />
-          User Management
+          {t("nav.users")} {/* ✅ Translated */}
         </h1>
         <Button onClick={handleAddNew}>
-          <PlusCircle className="mr-2 h-4 w-4" /> Add New User
+          <PlusCircle className="mr-2 h-4 w-4" /> {t("actions.addNewUser")}
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>All Users</CardTitle>
+          <CardTitle>{t("usersPage.allUsersTitle")}</CardTitle>
           <CardDescription>
-            A list of all users in the system and their roles.
+            {t("usersPage.allUsersDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -65,10 +66,10 @@ export default function UsersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Username</TableHead>
-                  <TableHead>Roles</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t("usersPage.name")}</TableHead>
+                  <TableHead>{t("usersPage.username")}</TableHead>
+                  <TableHead>{t("usersPage.roles")}</TableHead>
+                  <TableHead className="text-right">{t("usersPage.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -88,7 +89,7 @@ export default function UsersPage() {
                     <TableCell className="text-right">
                       <Button variant="outline" size="sm" onClick={() => handleEdit(user)}>
                         <Edit className="mr-2 h-3 w-3" />
-                        Edit
+                        {t("common.edit")}
                       </Button>
                     </TableCell>
                   </TableRow>
