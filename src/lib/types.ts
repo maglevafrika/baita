@@ -71,6 +71,7 @@ export interface Applicant {
 }
 
 export interface StudentProfile {
+  phoneNumber: string;
   id?: string; // Optional for Firestore auto-generated IDs
   idPrefix?: string;
   name: string;

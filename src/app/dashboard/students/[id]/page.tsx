@@ -185,14 +185,21 @@ function StudentProfileContent() {
                 </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="space-y-1"><p className="text-muted-foreground">Gender</p><p>{student.gender || 'Not specified'}</p></div>
-                  <div className="space-y-1"><p className="text-muted-foreground">Date of Birth</p><p>{student.dob ? format(new Date(student.dob), 'PPP') : 'Not specified'}</p></div>
-                  <div className="space-y-1"><p className="text-muted-foreground">Nationality</p><p>{student.nationality || 'Not specified'}</p></div>
-                  <div className="space-y-1"><p className="text-muted-foreground">Instrument</p><p>{student.instrumentInterest || 'Not specified'}</p></div>
-              </div>
-            </CardContent>
-          </Card>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="space-y-1"><p className="text-muted-foreground">Gender</p><p>{student.gender || 'Not specified'}</p></div>
+                <div className="space-y-1"><p className="text-muted-foreground">Date of Birth</p><p>{student.dob ? format(new Date(student.dob), 'PPP') : 'Not specified'}</p></div>
+                <div className="space-y-1"><p className="text-muted-foreground">Nationality</p><p>{student.nationality || 'Not specified'}</p></div>
+                <div className="space-y-1"><p className="text-muted-foreground">Instrument</p><p>{student.instrumentInterest || 'Not specified'}</p></div>
+                <div className="space-y-1"><p className="text-muted-foreground">Instrument</p><p>{student.instrumentInterest || 'Not specified'}</p></div>
+                {student.contact?.phone && (
+                  <div className="space-y-1">
+                    <p className="text-muted-foreground">Phone Number</p>
+                    <p>{student.contact.phone}</p>
+                  </div>
+                )}
+            </div>
+          </CardContent>
+        </Card>
           
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
