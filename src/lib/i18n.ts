@@ -6,8 +6,18 @@ const resources = {
   en: {
     translation: {
       nav: {
-        print: "Print",
+        dashboard: "Dashboard",
+        requests: "Requests",
+        students: "Students",
+        applicants: "Applicants",
+        users: "Users",
+        semesters: "Semesters",
+        leaves: "Leaves",
+        exclusions: "Exclusions",
+        payments: "Payments",
+        reports: "Reports",
         settings: "Settings",
+        print: "Print",
         languages: "Languages",
         selectLanguage: "Select Language",
         switchTheme: "Switch to {{mode}} mode",
@@ -119,8 +129,18 @@ const resources = {
   ar: {
     translation: {
       nav: {
-        print: "طباعة",
+        dashboard: "لوحة التحكم",
+        requests: "الطلبات",
+        students: "الطلاب",
+        applicants: "المتقدمين",
+        users: "المستخدمين",
+        semesters: "الفصول الدراسية",
+        leaves: "الإجازات",
+        exclusions: "الاستثناءات",
+        payments: "المدفوعات",
+        reports: "التقارير",
         settings: "الإعدادات",
+        print: "طباعة",
         languages: "اللغات",
         selectLanguage: "اختر اللغة",
         switchTheme: "التبديل إلى وضع {{mode}}",

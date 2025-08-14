@@ -19,10 +19,11 @@ import {
   UserCheck 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from 'react-i18next';
 
 interface NavItem {
   href: string;
-  label: string;
+  labelKey: string; // Changed from label to labelKey for translation
   roles: Role[];
   icon: React.ComponentType<{ className?: string }>;
 }
@@ -30,73 +31,74 @@ interface NavItem {
 export function DashboardNav() {
   const pathname = usePathname();
   const { user } = useAuth();
+  const { t } = useTranslation();
 
   if (!user) return null;
 
   const navItems: NavItem[] = [
     { 
       href: "/dashboard", 
-      label: "Dashboard", 
+      labelKey: "nav.dashboard", 
       roles: ["admin", "teacher", "upper-management", "high-level-dashboard"] as Role[], 
       icon: Home 
     },
     { 
       href: "/dashboard/requests", 
-      label: "Requests", 
+      labelKey: "nav.requests", 
       roles: ["admin", "upper-management", "high-level-dashboard"] as Role[], 
       icon: FileText 
     },
     { 
       href: "/dashboard/students", 
-      label: "Students", 
+      labelKey: "nav.students", 
       roles: ["admin", "teacher", "upper-management", "high-level-dashboard"] as Role[], 
       icon: GraduationCap 
     },
     { 
       href: "/dashboard/applicants", 
-      label: "Applicants", 
+      labelKey: "nav.applicants", 
       roles: ["admin"] as Role[], 
       icon: UserCheck 
     },
     { 
       href: "/dashboard/users", 
-      label: "Users", 
+      labelKey: "nav.users", 
       roles: ["admin", "high-level-dashboard"] as Role[], 
       icon: Users 
     },
     { 
       href: "/dashboard/semesters", 
-      label: "Semesters", 
+      labelKey: "nav.semesters", 
       roles: ["admin"] as Role[], 
       icon: Calendar 
     },
     { 
       href: "/dashboard/leaves", 
-      label: "Leaves", 
+      labelKey: "nav.leaves", 
       roles: ["admin"] as Role[], 
       icon: Plane 
     },
     { 
       href: "/dashboard/exclusions", 
-      label: "Exclusions", 
+      labelKey: "nav.exclusions", 
       roles: ["admin"] as Role[], 
       icon: CircleSlash 
     },
     { 
       href: "/dashboard/payments", 
-      label: "Payments", 
+      labelKey: "nav.payments", 
       roles: ["admin", "upper-management", "high-level-dashboard"] as Role[], 
       icon: Wallet 
     },
     { 
       href: "/dashboard/reports", 
-      label: "Reports", 
+      labelKey: "nav.reports", 
       roles: ["admin", "upper-management", "high-level-dashboard"] as Role[], 
       icon: LineChart 
     },
     { 
       href: "/dashboard/settings", 
-      label: "Settings", 
+      labelKey: "nav.settings", 
       roles: ["admin", "high-level-dashboard"] as Role[], 
       icon: Settings 
     },
@@ -118,7 +120,7 @@ export function DashboardNav() {
               pathname === item.href ? "text-primary" : "text-muted-foreground"
             )}
           >
-            {item.label}
+            {t(item.labelKey)}
           </Link>
         )
       )}
