@@ -32,20 +32,34 @@ import { EnrollStudentDialog } from "@/components/enroll-student-dialog";
 import { AddStudentDialog } from "@/components/add-student-dialog";
 import { CreateSessionDialog } from "@/components/create-session-dialog";
 
-const ImportScheduleDialog = ({ isOpen, onOpenChange }: { isOpen: boolean, onOpenChange: (open: boolean) => void }) => {
-    const { t } = useTranslation();
-    
-    return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>{t('importSchedule.title')}</DialogTitle>
-                    <DialogDescription>{t('importSchedule.description')}</DialogDescription>
-                </DialogHeader>
-                <p>{t('importSchedule.placeholder')}</p>
-            </DialogContent>
-        </Dialog>
-    );
+import { ImportStudentsDialog } from "@/components/import-students-dialog";
+
+interface ImportScheduleDialogProps {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export const ImportScheduleDialog = ({
+  isOpen,
+  onOpenChange
+}: ImportScheduleDialogProps) => {
+  const { t } = useTranslation();
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{t("importSchedule.title")}</DialogTitle>
+          <DialogDescription>
+            {t("importSchedule.description")}
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* CSV Upload Form */}
+        <ImportStudentsDialog isOpen={isOpen} onOpenChange={onOpenChange} />
+      </DialogContent>
+    </Dialog>
+  );
 };
 
 const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onUpdate, weekStartDate, studentLeaves }: { processedSessions: ProcessedSession[]; dayFilter: string; semester: Semester | undefined; teacherName: string; onUpdate: () => void; weekStartDate: string, studentLeaves: Leave[] }) => {

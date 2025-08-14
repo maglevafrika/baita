@@ -80,10 +80,8 @@ export function ImportStudentsDialog({ isOpen, onOpenChange }: ImportStudentsDia
         enrolledIn: [],
         paymentPlan: 'none' as const,
       }
-      const success = await addStudent(studentToCreate);
-      if (success) {
-        successCount++;
-      }
+      await addStudent(studentToCreate);
+      successCount++;
     }
     setIsLoading(false);
 
