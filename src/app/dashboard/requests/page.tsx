@@ -24,6 +24,7 @@ import { TeacherRequest, Semester, Session, SessionStudent, StudentProfile } fro
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { useDatabase } from '@/context/database-context';
+import { useTranslation } from 'react-i18next';
 
 export default function RequestsPage() {
   const { 
@@ -36,6 +37,7 @@ export default function RequestsPage() {
     students 
   } = useDatabase();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   // Helper function to get semester by ID
   const getSemester = (semesterId: string): Semester | null => {
@@ -50,8 +52,8 @@ export default function RequestsPage() {
   const handleAction = async (request: TeacherRequest, action: "approved" | "denied") => {
     if (!request.id) {
       toast({
-        title: "Error",
-        description: "Request ID is missing.",
+        title: t('common.error'),
+        description: t('requests.errors.missingRequestId'),
         variant: "destructive",
       });
       return;
@@ -63,15 +65,15 @@ export default function RequestsPage() {
         const student = getStudent(request.details.studentId);
         
         if (!semester || !student) {
-          throw new Error("Could not find semester or student for this request.");
+          throw new Error(t('requests.errors.semesterOrStudentNotFound'));
         }
 
         if (!semester.id) {
-          throw new Error("Semester ID is missing.");
+          throw new Error(t('requests.errors.missingSemesterId'));
         }
 
         if (!student.id) {
-          throw new Error("Student ID is missing.");
+          throw new Error(t('requests.errors.missingStudentId'));
         }
 
         // Create a deep copy of the master schedule
@@ -79,19 +81,19 @@ export default function RequestsPage() {
         
         // Check if teacher exists in schedule
         if (!masterSchedule[request.teacherName]) {
-          throw new Error(`Teacher ${request.teacherName} not found in schedule.`);
+          throw new Error(t('requests.errors.teacherNotFound', { teacherName: request.teacherName }));
         }
 
         // Check if day exists for teacher
         const daySessions = masterSchedule[request.teacherName]?.[request.details.day];
         if (!daySessions) {
-          throw new Error(`No sessions found for ${request.teacherName} on ${request.details.day}.`);
+          throw new Error(t('requests.errors.noSessionsFound', { teacherName: request.teacherName, day: request.details.day }));
         }
         
         // Find the session
         const sessionIndex = daySessions.findIndex((s: Session) => s.id === request.details.sessionId);
         if (sessionIndex === -1) {
-          throw new Error(`Session ${request.details.sessionId} not found in schedule.`);
+          throw new Error(t('requests.errors.sessionNotFound', { sessionId: request.details.sessionId }));
         }
         
         // Remove the student from the session
@@ -115,15 +117,15 @@ export default function RequestsPage() {
       await updateTeacherRequest(request.id, { status: action });
       
       toast({
-        title: `Request ${action}`,
-        description: `The request has been successfully ${action}.`,
+        title: t(`requests.status.${action}`),
+        description: t(`requests.status.${action}Description`),
       });
 
     } catch (error: any) {
       console.error(`Error updating request ${request.id}: `, error);
       toast({
-        title: `Failed to ${action} request`,
-        description: `There was a problem updating the request. ${error.message}`,
+        title: t(`requests.status.failed${action.charAt(0).toUpperCase() + action.slice(1)}`),
+        description: t('requests.status.updateError', { message: error.message }),
         variant: "destructive",
       });
     }
@@ -132,13 +134,13 @@ export default function RequestsPage() {
   const getRequestTitle = (request: TeacherRequest) => {
     switch (request.type) {
       case "add-student":
-        return `Request to Add Student`;
+        return t('requests.types.addStudentTitle');
       case "remove-student":
-        return `Request to Remove Student`;
+        return t('requests.types.removeStudentTitle');
       case "change-time":
-        return `Request to Change Time`;
+        return t('requests.types.changeTimeTitle');
       default:
-        return `New Request`;
+        return t('requests.types.newRequest');
     }
   };
 
@@ -155,8 +157,17 @@ export default function RequestsPage() {
     }
   };
 
-  const formatRequestType = (type: TeacherRequest['type']): string => {
-    return type.replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+  const formatRequestType = (type: TeacherRequest['type'] | string): string => {
+    switch (type) {
+      case 'add-student':
+        return t('requests.types.addStudent');
+      case 'remove-student':
+        return t('requests.types.removeStudent');
+      case 'change-time':
+        return t('requests.types.changeTime');
+      default:
+        return (type as string).replace(/-/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase());
+    }
   };
 
   const pendingRequests = teacherRequests.filter((r) => r.status === "pending");
@@ -165,7 +176,7 @@ export default function RequestsPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <FileText className="h-8 w-8 text-primary" />
-        <h1 className="text-3xl font-bold font-headline">Teacher Requests</h1>
+        <h1 className="text-3xl font-bold font-headline">{t('requests.title')}</h1>
       </div>
 
       {loading ? (
@@ -175,11 +186,11 @@ export default function RequestsPage() {
       ) : pendingRequests.length === 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle>No Pending Requests</CardTitle>
+            <CardTitle>{t('requests.noPending.title')}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground">
-              There are no pending requests from teachers at this time.
+              {t('requests.noPending.description')}
             </p>
           </CardContent>
         </Card>
@@ -195,7 +206,7 @@ export default function RequestsPage() {
                   </Badge>
                 </CardTitle>
                 <CardDescription>
-                  Submitted on{" "}
+                  {t('requests.submittedOn')}{" "}
                   {format(new Date(request.date), "MMMM dd, yyyy")}
                 </CardDescription>
               </CardHeader>
@@ -204,32 +215,32 @@ export default function RequestsPage() {
                   <User className="w-4 h-4 mt-1 text-muted-foreground" />
                   <div>
                     <p className="font-semibold">{request.details.studentName}</p>
-                    <p className="text-muted-foreground">Student</p>
+                    <p className="text-muted-foreground">{t('requests.labels.student')}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <User className="w-4 h-4 mt-1 text-muted-foreground" />
                   <div>
                     <p className="font-semibold">{request.teacherName}</p>
-                    <p className="text-muted-foreground">Teacher</p>
+                    <p className="text-muted-foreground">{t('requests.labels.teacher')}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <Calendar className="w-4 h-4 mt-1 text-muted-foreground" />
                   <div>
                     <p className="font-semibold">{request.details.day}</p>
-                    <p className="text-muted-foreground">Class Day</p>
+                    <p className="text-muted-foreground">{t('requests.labels.classDay')}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <Clock className="w-4 h-4 mt-1 text-muted-foreground" />
                   <div>
                     <p className="font-semibold">{request.details.sessionTime}</p>
-                    <p className="text-muted-foreground">Class Time</p>
+                    <p className="text-muted-foreground">{t('requests.labels.classTime')}</p>
                   </div>
                 </div>
                 <div className="border-l-2 pl-3 ml-1.5 border-muted">
-                  <p className="font-semibold text-muted-foreground mb-1">Reason:</p>
+                  <p className="font-semibold text-muted-foreground mb-1">{t('requests.labels.reason')}:</p>
                   <p className="italic">"{request.details.reason}"</p>
                 </div>
               </CardContent>
@@ -240,7 +251,7 @@ export default function RequestsPage() {
                   disabled={loading}
                 >
                   <CheckCircle className="w-4 h-4 mr-2" />
-                  Approve
+                  {t('requests.actions.approve')}
                 </Button>
                 <Button
                   variant="destructive"
@@ -249,7 +260,7 @@ export default function RequestsPage() {
                   disabled={loading}
                 >
                   <XCircle className="w-4 h-4 mr-2" />
-                  Deny
+                  {t('requests.actions.deny')}
                 </Button>
               </CardFooter>
             </Card>

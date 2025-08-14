@@ -123,6 +123,52 @@ const resources = {
         daySessionsNotFound: "Could not find day sessions for this teacher",
         sessionNotFound: "Could not find the session",
         studentProfileNotFound: "Student profile not found to update enrollment"
+      },
+      requests: {
+        title: "Teacher Requests",
+        submittedOn: "Submitted on",
+        noPending: {
+          title: "No Pending Requests",
+          description: "There are no pending requests from teachers at this time."
+        },
+        types: {
+          addStudent: "Add Student",
+          removeStudent: "Remove Student",
+          changeTime: "Change Time",
+          addStudentTitle: "Request to Add Student",
+          removeStudentTitle: "Request to Remove Student",
+          changeTimeTitle: "Request to Change Time",
+          newRequest: "New Request"
+        },
+        labels: {
+          student: "Student",
+          teacher: "Teacher",
+          classDay: "Class Day",
+          classTime: "Class Time",
+          reason: "Reason"
+        },
+        actions: {
+          approve: "Approve",
+          deny: "Deny"
+        },
+        status: {
+          approved: "Request approved",
+          approvedDescription: "The request has been successfully approved.",
+          denied: "Request denied",
+          deniedDescription: "The request has been successfully denied.",
+          failedApproved: "Failed to approve request",
+          failedDenied: "Failed to deny request",
+          updateError: "There was a problem updating the request. {{message}}"
+        },
+        errors: {
+          missingRequestId: "Request ID is missing.",
+          semesterOrStudentNotFound: "Could not find semester or student for this request.",
+          missingSemesterId: "Semester ID is missing.",
+          missingStudentId: "Student ID is missing.",
+          teacherNotFound: "Teacher {{teacherName}} not found in schedule.",
+          noSessionsFound: "No sessions found for {{teacherName}} on {{day}}.",
+          sessionNotFound: "Session {{sessionId}} not found in schedule."
+        }
       }
     }
   },
@@ -246,6 +292,52 @@ const resources = {
         daySessionsNotFound: "لا يمكن العثور على جلسات اليوم لهذا المدرس",
         sessionNotFound: "لا يمكن العثور على الجلسة",
         studentProfileNotFound: "لم يتم العثور على ملف الطالب الشخصي لتحديث التسجيل"
+      },
+      requests: {
+        title: "طلبات المدرسين",
+        submittedOn: "تم الإرسال في",
+        noPending: {
+          title: "لا توجد طلبات معلقة",
+          description: "لا توجد طلبات معلقة من المدرسين في هذا الوقت."
+        },
+        types: {
+          addStudent: "إضافة طالب",
+          removeStudent: "إزالة طالب",
+          changeTime: "تغيير الوقت",
+          addStudentTitle: "طلب إضافة طالب",
+          removeStudentTitle: "طلب إزالة طالب",
+          changeTimeTitle: "طلب تغيير الوقت",
+          newRequest: "طلب جديد"
+        },
+        labels: {
+          student: "طالب",
+          teacher: "مدرس",
+          classDay: "يوم الفصل",
+          classTime: "وقت الفصل",
+          reason: "السبب"
+        },
+        actions: {
+          approve: "الموافقة",
+          deny: "الرفض"
+        },
+        status: {
+          approved: "تم قبول الطلب",
+          approvedDescription: "تم قبول الطلب بنجاح.",
+          denied: "تم رفض الطلب",
+          deniedDescription: "تم رفض الطلب بنجاح.",
+          failedApproved: "فشل في قبول الطلب",
+          failedDenied: "فشل في رفض الطلب",
+          updateError: "حدثت مشكلة في تحديث الطلب. {{message}}"
+        },
+        errors: {
+          missingRequestId: "معرف الطلب مفقود.",
+          semesterOrStudentNotFound: "لا يمكن العثور على الفصل الدراسي أو الطالب لهذا الطلب.",
+          missingSemesterId: "معرف الفصل الدراسي مفقود.",
+          missingStudentId: "معرف الطالب مفقود.",
+          teacherNotFound: "المدرس {{teacherName}} غير موجود في الجدول.",
+          noSessionsFound: "لا توجد جلسات لـ {{teacherName}} في {{day}}.",
+          sessionNotFound: "الجلسة {{sessionId}} غير موجودة في الجدول."
+        }
       }
     }
   }
