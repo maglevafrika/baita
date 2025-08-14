@@ -43,6 +43,7 @@ function AddLeaveDialog({ onLeaveAdded }: { onLeaveAdded: () => void }) {
   const { users } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const { t } = useTranslation();
 
   const form = useForm<LeaveFormValues>({
     resolver: zodResolver(leaveFormSchema),
@@ -65,7 +66,7 @@ function AddLeaveDialog({ onLeaveAdded }: { onLeaveAdded: () => void }) {
     try {
       const person = personOptions.find(p => p.id === data.personId);
       if (!person) {
-          toast({ title: "Error", description: "Selected person not found.", variant: 'destructive'});
+          toast({ title: t('common.error'), description: "Selected person not found.", variant: 'destructive'});
           setIsLoading(false);
           return;
       }
@@ -96,12 +97,12 @@ function AddLeaveDialog({ onLeaveAdded }: { onLeaveAdded: () => void }) {
       <DialogTrigger asChild>
         <Button>
           <PlusCircle className="mr-2 h-4 w-4" /> 
-          New Leave Request
+          {t('leavesPage.newRequest')}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>New Leave Request</DialogTitle>
+          <DialogTitle>{t('leavesPage.newRequest')}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -110,16 +111,16 @@ function AddLeaveDialog({ onLeaveAdded }: { onLeaveAdded: () => void }) {
               name="type" 
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Request For</FormLabel>
+                  <FormLabel>{t('leavesPage.requestFor')}</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select type..." />
+                        <SelectValue placeholder={t('leavesPage.selectType')} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="student">Student</SelectItem>
-                      <SelectItem value="teacher">Teacher</SelectItem>
+                      <SelectItem value="student">{t('leavesPage.student')}</SelectItem>
+                      <SelectItem value="teacher">{t('leavesPage.teacher')}</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -133,11 +134,11 @@ function AddLeaveDialog({ onLeaveAdded }: { onLeaveAdded: () => void }) {
                 name="personId" 
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{leaveType === 'student' ? 'Student' : 'Teacher'}</FormLabel>
+                    <FormLabel>{leaveType === 'student' ? t('leavesPage.student') : t('leavesPage.teacher')}</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder={`Select a ${leaveType}...`} />
+                          <SelectValue placeholder={leaveType === 'student' ? t('leavesPage.selectStudent') : t('leavesPage.selectTeacher')} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -161,7 +162,7 @@ function AddLeaveDialog({ onLeaveAdded }: { onLeaveAdded: () => void }) {
               name="dateRange" 
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Leave Dates</FormLabel>
+                  <FormLabel>{t('leavesPage.leaveDates')}</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button 
@@ -182,7 +183,7 @@ function AddLeaveDialog({ onLeaveAdded }: { onLeaveAdded: () => void }) {
                             format(field.value.from, "LLL dd, y")
                           )
                         ) : (
-                          <span>Pick a date range</span>
+                          <span>{t('leavesPage.pickDateRange')}</span>
                         )}
                       </Button>
                     </PopoverTrigger>
@@ -207,9 +208,9 @@ function AddLeaveDialog({ onLeaveAdded }: { onLeaveAdded: () => void }) {
               name="reason" 
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Reason</FormLabel>
+                  <FormLabel>{t('leavesPage.reason')}</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Reason for leave..." {...field} />
+                    <Textarea placeholder={t('leavesPage.reasonPlaceholder')} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -219,7 +220,7 @@ function AddLeaveDialog({ onLeaveAdded }: { onLeaveAdded: () => void }) {
             <DialogFooter>
               <Button type="submit" disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} 
-                Submit Request
+                {t('leavesPage.submit')}
               </Button>
             </DialogFooter>
           </form>
@@ -254,6 +255,7 @@ function TransferStudentsDialog({
   const { users } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const { t } = useTranslation();
 
   const form = useForm<TransferFormValues>();
   const { fields, replace } = useFieldArray({ control: form.control, name: "transfers" });
@@ -385,14 +387,14 @@ function TransferStudentsDialog({
       
       await onApprovalSuccess();
       toast({ 
-        title: "Students Transferred", 
-        description: "The students have been moved to their new schedules." 
+        title: t('leavesPage.studentsTransferred'), 
+        description: t('leavesPage.studentsTransferredDescription')
       });
       onOpenChange(false);
 
     } catch(error: any) {
       toast({ 
-        title: "Error", 
+        title: t('common.error'), 
         description: error.message, 
         variant: 'destructive'
       });
@@ -405,9 +407,9 @@ function TransferStudentsDialog({
     <Dialog open={true} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-2xl">
             <DialogHeader>
-                <DialogTitle>Transfer Students for {leaveRequest.personName}</DialogTitle>
+                <DialogTitle>{t('leavesPage.transferTitle', { name: leaveRequest.personName })}</DialogTitle>
                 <DialogDescription>
-                  The following students are affected by this leave. Please reassign them to a new teacher for the duration.
+                  {t('leavesPage.transferDescription')}
                 </DialogDescription>
             </DialogHeader>
             <Form {...form}>
@@ -451,11 +453,11 @@ function TransferStudentsDialog({
             </ScrollArea>
              <DialogFooter>
                 <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-                  Cancel
+                  {t('leavesPage.cancel')}
                 </Button>
                 <Button type="submit" disabled={isLoading}>
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} 
-                  Confirm Transfers & Approve
+                  {t('leavesPage.confirmTransfers')}
                 </Button>
             </DialogFooter>
             </form>
@@ -483,7 +485,7 @@ export default function LeavesPage() {
           if (leave.id) {
             await updateLeave(leave.id, { status: 'approved' });
             toast({ 
-              title: "Leave Approved", 
+              title: t('leavesPage.leaveApproved'), 
               description: `The leave request for ${leave.personName} has been approved.`
             });
           }
@@ -498,7 +500,7 @@ export default function LeavesPage() {
       if (leave.id) {
         await updateLeave(leave.id, { status: 'denied' });
         toast({ 
-          title: "Leave Denied", 
+          title: t('leavesPage.leaveDenied'), 
           description: `The leave request for ${leave.personName} has been denied.`, 
           variant: 'destructive'
         });
@@ -514,7 +516,7 @@ export default function LeavesPage() {
     try {
       await updateLeave(leaveToTransfer.id, { status: 'approved' });
       toast({ 
-        title: "Leave Approved", 
+        title: t('leavesPage.leaveApproved'), 
         description: `The leave request for ${leaveToTransfer.personName} has been approved.`
       });
       setLeaveToTransfer(null);
@@ -543,15 +545,15 @@ export default function LeavesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold font-headline flex items-center gap-2">
-          <Plane className="w-8 h-8" /> Leave Management
+          <Plane className="w-8 h-8" /> {t('leavesPage.title')}
         </h1>
         <AddLeaveDialog onLeaveAdded={onLeaveAdded} />
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Leave Requests</CardTitle>
-          <CardDescription>View and manage all leave requests for students and teachers.</CardDescription>
+          <CardTitle>{t('leavesPage.title')}</CardTitle>
+          <CardDescription>{t('leavesPage.description')}</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -574,7 +576,7 @@ export default function LeavesPage() {
                              <User className="h-4 w-4" /> : 
                              <Building className="h-4 w-4" />
                            } 
-                           <span className="capitalize">{leave.type}</span>
+                           <span className="capitalize">{leave.type === 'student' ? t('leavesPage.student') : t('leavesPage.teacher')}</span>
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-2 text-sm">
@@ -582,16 +584,16 @@ export default function LeavesPage() {
                           <strong>Dates:</strong> {format(new Date(leave.startDate), 'PPP')} to {format(new Date(leave.endDate), 'PPP')}
                         </p>
                         <p>
-                          <strong>Reason:</strong> {leave.reason}
+                          <strong>{t('leavesPage.reason')}:</strong> {leave.reason}
                         </p>
                     </CardContent>
                     {leave.status === 'pending' && (
                         <CardFooter className="flex gap-2">
                             <Button size="sm" className="w-full" onClick={() => handleApprove(leave)}>
-                              <CheckCircle className="mr-2 h-4 w-4" /> Approve
+                              <CheckCircle className="mr-2 h-4 w-4" /> {t('leavesPage.approve')}
                             </Button>
                             <Button size="sm" variant="destructive" className="w-full" onClick={() => handleDeny(leave)}>
-                              <XCircle className="mr-2 h-4 w-4"/> Deny
+                              <XCircle className="mr-2 h-4 w-4"/> {t('leavesPage.deny')}
                             </Button>
                         </CardFooter>
                     )}
@@ -599,7 +601,7 @@ export default function LeavesPage() {
               ))}
             </div>
           ) : (
-             <p className="text-center text-muted-foreground py-8">No leave requests found.</p>
+             <p className="text-center text-muted-foreground py-8">{t('leavesPage.noRequests')}</p>
           )}
         </CardContent>
       </Card>
