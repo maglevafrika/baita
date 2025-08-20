@@ -92,6 +92,7 @@ export function EnrollStudentDialog({ isOpen, onOpenChange, students, semester, 
         // Check if a session at this exact time already exists
         let session = updatedMasterSchedule[teacherInfo.name][data.day].find((s: Session) => s.time === startTime);
 
+        // ✅ CRITICAL FIX: Create proper SessionStudent object instead of just name string
         const studentData: SessionStudent = { 
           id: studentToEnroll.id, 
           name: studentToEnroll.name, 
@@ -99,12 +100,14 @@ export function EnrollStudentDialog({ isOpen, onOpenChange, students, semester, 
           pendingRemoval: false 
         };
 
-        if (session) { // Session exists, add student
+        if (session) { 
+            // Session exists, add student if not already present
             const studentInSession = session.students.some((s: SessionStudent) => s.id === data.studentId);
             if (!studentInSession) {
-                session.students.push(studentData);
+                session.students.push(studentData); // ✅ Push SessionStudent object, not string
             }
-        } else { // Session does not exist, create it
+        } else { 
+            // Session does not exist, create it
             session = {
                 id: `${data.day}-${teacherInfo.name}-${startTime.replace(/[\s:]/g, '')}`,
                 time: startTime,
@@ -112,7 +115,7 @@ export function EnrollStudentDialog({ isOpen, onOpenChange, students, semester, 
                 duration: data.duration,
                 specialization: data.specialization,
                 type: 'practical',
-                students: [studentData]
+                students: [studentData] // ✅ Array of SessionStudent objects, not strings
             };
             updatedMasterSchedule[teacherInfo.name][data.day].push(session);
         }
