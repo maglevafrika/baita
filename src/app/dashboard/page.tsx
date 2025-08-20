@@ -27,12 +27,12 @@ import { useTranslation } from 'react-i18next';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
-// Placeholder Dialogs
+// Component imports
 import { EnrollStudentDialog } from "@/components/enroll-student-dialog";
 import { AddStudentDialog } from "@/components/add-student-dialog";
 import { CreateSessionDialog } from "@/components/create-session-dialog";
-
 import { ImportStudentsDialog } from "@/components/import-students-dialog";
+import { DeleteStudentDialog } from "@/components/delete-student-dialog";
 
 interface ImportScheduleDialogProps {
   isOpen: boolean;
@@ -412,6 +412,7 @@ export default function DashboardPage() {
     const [_, setForceUpdate] = useState({});
 
     const [isEnrolling, setIsEnrolling] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
 
     // Prevent hydration error
@@ -599,22 +600,32 @@ export default function DashboardPage() {
         <div className="space-y-4">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <h1 className="text-2xl font-headline self-start">{t('dashboard.title')}</h1>
-                 {isAdmin && (
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                        <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsEnrolling(true)}>
-                            <UserPlus/> {t('actions.enrollStudent')}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                    {isAdmin && (
+                        <>
+                            <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsEnrolling(true)}>
+                                <UserPlus className="h-4 w-4 mr-2" /> {t('actions.enrollStudent')}
+                            </Button>
+                            <Button variant="outline" className="w-full sm:w-auto text-destructive hover:text-destructive" onClick={() => setIsDeleting(true)}>
+                                <Trash2 className="h-4 w-4 mr-2" /> {t('actions.removeStudent')}
+                            </Button>
+                            <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsImporting(true)}>
+                                <Upload className="h-4 w-4 mr-2" /> {t('actions.import')}
+                            </Button>
+                            <Button variant="outline" className="w-full sm:w-auto" onClick={handleExportPDF}>
+                                <FileText className="h-4 w-4 mr-2" /> {t('actions.exportPDF')}
+                            </Button>
+                            <Button variant="outline" className="w-full sm:w-auto" onClick={handleExportCSV}>
+                                <FileDown className="h-4 w-4 mr-2" /> {t('actions.exportCSV')}
+                            </Button>
+                        </>
+                    )}
+                    {user?.activeRole === 'teacher' && (
+                        <Button variant="outline" className="w-full sm:w-auto text-destructive hover:text-destructive" onClick={() => setIsDeleting(true)}>
+                            <Trash2 className="h-4 w-4 mr-2" /> {t('actions.requestRemoval')}
                         </Button>
-                        <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsImporting(true)}>
-                            <Upload/> {t('actions.import')}
-                        </Button>
-                        <Button variant="outline" className="w-full sm:w-auto" onClick={handleExportPDF}>
-                            <FileText/> {t('actions.exportPDF')}
-                        </Button>
-                        <Button variant="outline" className="w-full sm:w-auto" onClick={handleExportCSV}>
-                            <FileDown/> {t('actions.exportCSV')}
-                        </Button>
-                    </div>
-                 )}
+                    )}
+                </div>
             </div>
             
             <Card>
@@ -697,14 +708,22 @@ export default function DashboardPage() {
             </div>
 
              {selectedSemester && (
-                <EnrollStudentDialog 
-                    isOpen={isEnrolling} 
-                    onOpenChange={setIsEnrolling} 
-                    students={students}
-                    semester={selectedSemester}
-                    teachers={users.filter(u => u.roles.includes('teacher'))}
-                    onEnrollmentSuccess={handleUpdate}
-                />
+                <>
+                    <EnrollStudentDialog 
+                        isOpen={isEnrolling} 
+                        onOpenChange={setIsEnrolling} 
+                        students={students}
+                        semester={selectedSemester}
+                        teachers={users.filter(u => u.roles.includes('teacher'))}
+                        onEnrollmentSuccess={handleUpdate}
+                    />
+                    {/* You need to select a single student to delete; here is an example using the first student */}
+                    <DeleteStudentDialog
+                        isOpen={isDeleting}
+                        onOpenChange={setIsDeleting}
+                        student={students[0]}
+                    />
+                </>
             )}
             <ImportScheduleDialog isOpen={isImporting} onOpenChange={setIsImporting} />
         </div>
