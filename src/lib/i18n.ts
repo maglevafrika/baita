@@ -84,7 +84,8 @@ const resources = {
         exportCSV: "Export CSV",
         addNewUser: "Add New User",
         importStudents: "Import Students",
-        addNewStudent: "Add New Student"
+        addNewStudent: "Add New Student",
+        removeStudent: "Remove Student",
       },
       applicants: {
         title: "Applicant Management",
@@ -349,7 +350,8 @@ const resources = {
         editSemester: "Edit Semester",
         noSemesters: "No semesters found. Add one to get started.",
         teachersCount: "{{count}} Teachers"
-      }
+      },
+      
     }
   },
   ar: {
@@ -433,7 +435,8 @@ const resources = {
         exportCSV: "تصدير CSV",
         addNewUser: "إضافة مستخدم جديد", 
         importStudents: "استيراد الطلاب", 
-        addNewStudent: "إضافة طالب جديد"
+        addNewStudent: "إضافة طالب جديد",
+        removeStudent: "إزالة طالب"
       },
       applicants: {
         title: "إدارة المتقدمين",
