@@ -112,41 +112,29 @@ export function EnrollStudentDialog({ isOpen, onOpenChange, students, semester, 
                 duration: data.duration,
                 specialization: data.specialization,
                 type: 'practical',
-                students: [studentToEnroll.name]
+                students: [studentData]
             };
             updatedMasterSchedule[teacherInfo.name][data.day].push(session);
         }
         
-        const updatedEnrolledIn = [
-          ...studentToEnroll.enrolledIn,
-          { 
-            semesterId: semester.id || '', 
-            teacher: teacherInfo.name, 
-            sessionId: session.id,
-            startTime: startTime,
-            endTime: endTime,
-            duration: data.duration,
-            specialization: data.specialization, 
-            students: [studentToEnroll.name]
-          }
-        ];
+        const updatedEnrolledIn = [...studentToEnroll.enrolledIn, { 
+          semesterId: semester.id || '', 
+          teacher: teacherInfo.name, 
+          sessionId: session.id 
+        }];
         
         // Return promises and check their results
         const semesterPromise = updateSemester(semester.id || '', { masterSchedule: updatedMasterSchedule });
         const studentPromise = updateStudent(studentToEnroll.id, { enrolledIn: updatedEnrolledIn });
 
-        const [semesterSuccess, studentSuccess] = await Promise.all([semesterPromise, studentPromise]);
+        await Promise.all([semesterPromise, studentPromise]);
 
         setIsLoading(false);
 
-        if (semesterSuccess !== undefined && studentSuccess !== undefined) {
-            toast({ title: "Enrollment Successful", description: `${studentToEnroll.name} has been scheduled.` });
-            onEnrollmentSuccess();
-            onOpenChange(false);
-            form.reset();
-        } else {
-            toast({ title: "Enrollment Failed", description: "Failed to update records.", variant: 'destructive' });
-        }
+        toast({ title: "Enrollment Successful", description: `${studentToEnroll.name} has been scheduled.` });
+        onEnrollmentSuccess();
+        onOpenChange(false);
+        form.reset();
     } catch (error: any) {
         setIsLoading(false);
         console.error("Enrollment failed:", error);
