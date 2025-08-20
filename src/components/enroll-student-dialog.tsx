@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import { useForm } from "react-hook-form";
@@ -78,7 +76,7 @@ export function EnrollStudentDialog({ isOpen, onOpenChange, students, semester, 
     const studentToEnroll = students.find(s => s.id === data.studentId);
     const teacherInfo = teachers.find(t => t.id === data.teacherId);
 
-    if (!studentToEnroll || !teacherInfo) {
+    if (!studentToEnroll || !teacherInfo || !studentToEnroll.id) {
       toast({ title: "Error", description: "Student or teacher not found.", variant: 'destructive' });
       setIsLoading(false);
       return;
@@ -92,12 +90,17 @@ export function EnrollStudentDialog({ isOpen, onOpenChange, students, semester, 
         if (!updatedMasterSchedule[teacherInfo.name][data.day]) updatedMasterSchedule[teacherInfo.name][data.day] = [];
 
         // Check if a session at this exact time already exists
-        let session = updatedMasterSchedule[teacherInfo.name][data.day].find((s: Session) => s.time === startTime && s.day === data.day);
+        let session = updatedMasterSchedule[teacherInfo.name][data.day].find((s: Session) => s.time === startTime);
 
-        const studentData: SessionStudent = { id: studentToEnroll.id, name: studentToEnroll.name, attendance: null, pendingRemoval: false };
+        const studentData: SessionStudent = { 
+          id: studentToEnroll.id, 
+          name: studentToEnroll.name, 
+          attendance: null, 
+          pendingRemoval: false 
+        };
 
         if (session) { // Session exists, add student
-            const studentInSession = session.students.some((s: any) => s.id === data.studentId);
+            const studentInSession = session.students.some((s: SessionStudent) => s.id === data.studentId);
             if (!studentInSession) {
                 session.students.push(studentData);
             }
@@ -109,23 +112,40 @@ export function EnrollStudentDialog({ isOpen, onOpenChange, students, semester, 
                 duration: data.duration,
                 specialization: data.specialization,
                 type: 'practical',
-                students: [studentData]
+                students: [studentToEnroll.name]
             };
             updatedMasterSchedule[teacherInfo.name][data.day].push(session);
         }
         
-        const updatedEnrolledIn = [...studentToEnroll.enrolledIn, { semesterId: semester.id, teacher: teacherInfo.name, sessionId: session.id }];
+        const updatedEnrolledIn = [
+          ...studentToEnroll.enrolledIn,
+          { 
+            semesterId: semester.id || '', 
+            teacher: teacherInfo.name, 
+            sessionId: session.id,
+            startTime: startTime,
+            endTime: endTime,
+            duration: data.duration,
+            specialization: data.specialization, 
+            students: [studentToEnroll.name]
+          }
+        ];
         
-        const semesterSuccess = await updateSemester(semester.id, { masterSchedule: updatedMasterSchedule });
-        const studentSuccess = await updateStudent(studentToEnroll.id, { enrolledIn: updatedEnrolledIn });
+        // Return promises and check their results
+        const semesterPromise = updateSemester(semester.id || '', { masterSchedule: updatedMasterSchedule });
+        const studentPromise = updateStudent(studentToEnroll.id, { enrolledIn: updatedEnrolledIn });
+
+        const [semesterSuccess, studentSuccess] = await Promise.all([semesterPromise, studentPromise]);
 
         setIsLoading(false);
 
-        if (semesterSuccess && studentSuccess) {
+        if (semesterSuccess !== undefined && studentSuccess !== undefined) {
             toast({ title: "Enrollment Successful", description: `${studentToEnroll.name} has been scheduled.` });
             onEnrollmentSuccess();
             onOpenChange(false);
             form.reset();
+        } else {
+            toast({ title: "Enrollment Failed", description: "Failed to update records.", variant: 'destructive' });
         }
     } catch (error: any) {
         setIsLoading(false);
@@ -152,7 +172,7 @@ export function EnrollStudentDialog({ isOpen, onOpenChange, students, semester, 
                     <FormControl><SelectTrigger><SelectValue placeholder="Select a student to enroll" /></SelectTrigger></FormControl>
                     <SelectContent>
                       {students.map(student => (
-                        <SelectItem key={student.id} value={student.id}>{student.name} ({student.level})</SelectItem>
+                        <SelectItem key={student.id || ''} value={student.id || ''}>{student.name} ({student.level})</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
