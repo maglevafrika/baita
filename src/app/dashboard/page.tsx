@@ -28,7 +28,10 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
 // Placeholder Dialogs
+import { EnrollStudentDialog } from "@/components/enroll-student-dialog";
+import { AddStudentDialog } from "@/components/add-student-dialog";
 import { CreateSessionDialog } from "@/components/create-session-dialog";
+
 import { ImportStudentsDialog } from "@/components/import-students-dialog";
 
 interface ImportScheduleDialogProps {
@@ -59,450 +62,15 @@ export const ImportScheduleDialog = ({
   );
 };
 
-// Enhanced EnrollStudentDialog Component
-interface EnrollStudentDialogProps {
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
-  students: StudentProfile[];
-  semester: Semester;
-  teachers: UserInDb[];
-  onEnrollmentSuccess: () => void;
-}
-
-const EnrollStudentDialog = ({ 
-  isOpen, 
-  onOpenChange, 
-  students, 
-  semester, 
-  teachers, 
-  onEnrollmentSuccess 
-}: EnrollStudentDialogProps) => {
-  const [selectedStudentId, setSelectedStudentId] = useState<string>("");
-  const [selectedTeacher, setSelectedTeacher] = useState<string>("");
-  const [selectedSession, setSelectedSession] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(false);
-  
-  const { updateSemester, updateStudent } = useDatabase();
-  const { toast } = useToast();
+const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onUpdate, weekStartDate, studentLeaves }: { processedSessions: ProcessedSession[]; dayFilter: string; semester: Semester | undefined; teacherName: string; onUpdate: () => void; weekStartDate: string, studentLeaves: Leave[] }) => {
   const { t } = useTranslation();
-
-  // Get available students (not enrolled in selected session)
-  const availableStudents = useMemo(() => {
-    if (!selectedSession || !selectedTeacher) return students;
-    
-    const teacherSchedule = semester.masterSchedule?.[selectedTeacher];
-    if (!teacherSchedule) return students;
-
-    const enrolledStudentIds = new Set<string>();
-    Object.values(teacherSchedule).forEach(sessions => {
-      sessions.forEach(session => {
-        if (session.id === selectedSession) {
-          session.students.forEach(student => {
-            if (student.id !== undefined) {
-              enrolledStudentIds.add(student.id);
-            }
-          });
-        }
-      });
-    });
-
-    return students.filter(student => student.id !== undefined && !enrolledStudentIds.has(student.id));
-  }, [students, selectedSession, selectedTeacher, semester.masterSchedule]);
-
-  // Get available sessions for selected teacher
-  const availableSessions = useMemo(() => {
-    if (!selectedTeacher) return [];
-    
-    const teacherSchedule = semester.masterSchedule?.[selectedTeacher];
-    if (!teacherSchedule) return [];
-
-    const sessions: Array<{ id: string; day: string; time: string; specialization: string; type: string }> = [];
-    Object.entries(teacherSchedule).forEach(([day, daySessions]) => {
-      daySessions.forEach(session => {
-        sessions.push({
-          id: session.id,
-          day,
-          time: session.time,
-          specialization: session.specialization,
-          type: session.type
-        });
-      });
-    });
-
-    return sessions;
-  }, [selectedTeacher, semester.masterSchedule]);
-
-  const handleEnroll = async () => {
-    if (!selectedStudentId || !selectedTeacher || !selectedSession) {
-      toast({
-        title: t('common.error'),
-        description: t('enrollment.fillAllFields'),
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const studentToEnroll = students.find(s => s.id === selectedStudentId);
-    if (!studentToEnroll) {
-      toast({
-        title: t('common.error'),
-        description: t('enrollment.studentNotFound'),
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      // Create SessionStudent object
-      const studentData: SessionStudent = {
-        id: studentToEnroll.id ?? "",
-        name: studentToEnroll.name,
-        attendance: null
-      };
-
-      // Update master schedule
-      const masterSchedule = JSON.parse(JSON.stringify(semester.masterSchedule));
-      const teacherSchedule = masterSchedule[selectedTeacher];
-      
-      // Find the session and add student
-      let sessionFound = false;
-      Object.keys(teacherSchedule).forEach(day => {
-        const sessionIndex = teacherSchedule[day].findIndex((s: Session) => s.id === selectedSession);
-        if (sessionIndex > -1) {
-          masterSchedule[selectedTeacher][day][sessionIndex].students.push(studentData);
-          sessionFound = true;
-        }
-      });
-
-      if (!sessionFound) {
-        throw new Error(t('enrollment.sessionNotFound'));
-      }
-
-      // Update student's enrolled sessions
-      const updatedEnrolledIn = [
-        ...studentToEnroll.enrolledIn.map(e => ({
-          semesterId: e.semesterId,
-          sessionId: e.sessionId,
-          teacher: (e as any).teacher ?? (e as any).teacherName ?? ""
-        })),
-        {
-          semesterId: semester.id || "",
-          sessionId: selectedSession,
-          teacher: selectedTeacher
-        }
-      ];
-
-      // Update both semester and student
-      await Promise.all([
-        updateSemester(semester.id || "", { masterSchedule }),
-        updateStudent(selectedStudentId, { enrolledIn: updatedEnrolledIn })
-      ]);
-
-      toast({
-        title: t('enrollment.success'),
-        description: t('enrollment.studentEnrolled', { studentName: studentToEnroll.name })
-      });
-
-      onEnrollmentSuccess();
-      onOpenChange(false);
-      
-      // Reset form
-      setSelectedStudentId("");
-      setSelectedTeacher("");
-      setSelectedSession("");
-      
-    } catch (error: any) {
-      console.error('Enrollment error:', error);
-      toast({
-        title: t('common.error'),
-        description: t('enrollment.failed', { message: error.message }),
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t('enrollment.title')}</DialogTitle>
-          <DialogDescription>
-            {t('enrollment.description')}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">{t('enrollment.selectStudent')}</label>
-            <Select value={selectedStudentId} onValueChange={setSelectedStudentId}>
-              <SelectTrigger>
-                <SelectValue placeholder={t('enrollment.chooseStudent')} />
-              </SelectTrigger>
-              <SelectContent>
-                {availableStudents.map(student => (
-                  <SelectItem key={student.id ?? ""} value={student.id ?? ""}>
-                    {student.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">{t('enrollment.selectTeacher')}</label>
-            <Select value={selectedTeacher} onValueChange={setSelectedTeacher}>
-              <SelectTrigger>
-                <SelectValue placeholder={t('enrollment.chooseTeacher')} />
-              </SelectTrigger>
-              <SelectContent>
-                {teachers.map(teacher => (
-                  <SelectItem key={teacher.id} value={teacher.name || ""}>
-                    {teacher.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">{t('enrollment.selectSession')}</label>
-            <Select 
-              value={selectedSession} 
-              onValueChange={setSelectedSession}
-              disabled={!selectedTeacher}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t('enrollment.chooseSession')} />
-              </SelectTrigger>
-              <SelectContent>
-                {availableSessions.map(session => (
-                  <SelectItem key={session.id} value={session.id}>
-                    {session.day} - {session.time} ({session.specialization})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex gap-2">
-            <Button 
-              onClick={handleEnroll} 
-              disabled={isLoading || !selectedStudentId || !selectedTeacher || !selectedSession}
-              className="flex-1"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {t('enrollment.enrolling')}
-                </>
-              ) : (
-                <>
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  {t('enrollment.enrollStudent')}
-                </>
-              )}
-            </Button>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              {t('common.cancel')}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-// Enhanced AddStudentDialog Component
-interface AddStudentDialogProps {
-  session: ProcessedSession;
-  semester: Semester;
-  teacherName: string;
-  onStudentAdded: () => void;
-  children?: React.ReactNode;
-  asChild?: boolean;
-}
-
-const AddStudentDialog = ({ 
-  session, 
-  semester, 
-  teacherName, 
-  onStudentAdded, 
-  children, 
-  asChild 
-}: AddStudentDialogProps) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [selectedStudentId, setSelectedStudentId] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(false);
-  
-  const { students } = useDatabase();
-  const { updateSemester, updateStudent } = useDatabase();
-  const { toast } = useToast();
-  const { t } = useTranslation();
-
-  // Get students not already in this session
-  const availableStudents = useMemo(() => {
-    const enrolledIds = session.students.map(s => s.id).filter((id): id is string => id !== undefined);
-    return students.filter(student => student.id !== undefined && !enrolledIds.includes(student.id));
-  }, [students, session.students]);
-
-  const handleAddStudent = async () => {
-    if (!selectedStudentId) return;
-
-    const studentToAdd = students.find(s => s.id === selectedStudentId);
-    if (!studentToAdd) return;
-
-    setIsLoading(true);
-    try {
-      // Create SessionStudent object
-      const studentData: SessionStudent = {
-        id: studentToAdd.id ?? "",
-        name: studentToAdd.name,
-        attendance: null
-      };
-
-      // Update master schedule
-      const masterSchedule = JSON.parse(JSON.stringify(semester.masterSchedule));
-      const teacherSchedule = masterSchedule[teacherName];
-      
-      const sessionIndex = teacherSchedule[session.day].findIndex((s: Session) => s.id === session.id);
-      if (sessionIndex > -1) {
-        masterSchedule[teacherName][session.day][sessionIndex].students.push(studentData);
-      }
-
-      // Update student's enrolled sessions
-        const updatedEnrolledIn = [
-            ...studentToAdd.enrolledIn.map(e => ({
-                semesterId: e.semesterId,
-                sessionId: e.sessionId,
-                teacher: (e as any).teacher ?? (e as any).teacherName ?? ""
-            })),
-            {
-                semesterId: semester.id || "",
-                sessionId: session.id,
-                teacher: teacherName
-            }
-        ];
-
-      await Promise.all([
-        updateSemester(semester.id || "", { masterSchedule }),
-        updateStudent(selectedStudentId, { enrolledIn: updatedEnrolledIn })
-      ]);
-
-      toast({
-        title: t('enrollment.success'),
-        description: t('enrollment.studentAdded', { studentName: studentToAdd.name })
-      });
-
-      onStudentAdded();
-      setIsOpen(false);
-      setSelectedStudentId("");
-      
-    } catch (error: any) {
-      toast({
-        title: t('common.error'),
-        description: t('enrollment.addFailed', { message: error.message }),
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const TriggerComponent = asChild ? children : (
-    <Button variant="ghost" size="sm" className="w-full h-auto text-xs text-muted-foreground font-normal">
-      <UserPlus className="mr-2 h-3 w-3" /> {t('actions.enrollStudent')}
-    </Button>
-  );
-
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        {TriggerComponent}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t('enrollment.addToSession')}</DialogTitle>
-          <DialogDescription>
-            {t('enrollment.addToSessionDesc', { 
-              session: `${session.day} ${session.time} - ${session.specialization}` 
-            })}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">{t('enrollment.selectStudent')}</label>
-            <Select value={selectedStudentId} onValueChange={setSelectedStudentId}>
-              <SelectTrigger>
-                <SelectValue placeholder={t('enrollment.chooseStudent')} />
-              </SelectTrigger>
-              <SelectContent>
-                {availableStudents.map(student => (
-                  <SelectItem key={student.id ?? ""} value={student.id ?? ""}>
-                    {student.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex gap-2">
-            <Button 
-              onClick={handleAddStudent} 
-              disabled={isLoading || !selectedStudentId}
-              className="flex-1"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {t('enrollment.adding')}
-                </>
-              ) : (
-                <>
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  {t('enrollment.addStudent')}
-                </>
-              )}
-            </Button>
-            <Button variant="outline" onClick={() => setIsOpen(false)}>
-              {t('common.cancel')}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-const ScheduleGrid = ({ 
-  processedSessions, 
-  dayFilter, 
-  semester, 
-  teacherName, 
-  onUpdate, 
-  weekStartDate, 
-  studentLeaves 
-}: { 
-  processedSessions: ProcessedSession[]; 
-  dayFilter: string; 
-  semester: Semester | undefined; 
-  teacherName: string; 
-  onUpdate: () => void; 
-  weekStartDate: string; 
-  studentLeaves: Leave[] 
-}) => {
-  const { t, i18n } = useTranslation();
-  const isRTL = i18n.language === 'ar' || i18n.dir() === 'rtl';
   
   // Define the day keys and their order
   const allDaysKeys = ["Saturday", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"];
   
   const isMobile = useIsMobile();
   const days = isMobile && dayFilter.toLowerCase() !== 'all' ? [dayFilter] : allDaysKeys;
-  const timeSlots = Array.from({ length: 12 }, (_, i) => `${i + 10}:00`); // 10 AM to 9 PM
+  const timeSlots = Array.from({ length: 12 }, (_, i) => `${i + 10}:00`); // 10 AM to 9 PM (for slots ending at 10 PM)
   const { user } = useAuth();
   const { toast } = useToast();
   const { updateSemester, addTeacherRequest, updateStudent, students: allStudents } = useDatabase();
@@ -511,6 +79,7 @@ const ScheduleGrid = ({
 
   const handleUpdateAttendance = async (studentId: string, sessionId: string, day: string, status: SessionStudent['attendance']) => {
       if (!semester || !user || !weekStartDate) return;
+      const attendancePath = `weeklyAttendance.${weekStartDate}.${teacherName}.${sessionId}.${studentId}`;
       
       const updatedWeeklyAttendance = JSON.parse(JSON.stringify(semester.weeklyAttendance || {}));
       if (!updatedWeeklyAttendance[weekStartDate]) updatedWeeklyAttendance[weekStartDate] = {};
@@ -558,8 +127,8 @@ const ScheduleGrid = ({
             // Also mark student as pending removal in master schedule
             const masterSchedule = JSON.parse(JSON.stringify(semester.masterSchedule));
             const daySessions = masterSchedule[teacherName]?.[session.day];
-            const sessionIndex = daySessions?.findIndex((s: Session) => s.id === session.id);
-            if (sessionIndex !== undefined && sessionIndex > -1) {
+            const sessionIndex = daySessions.findIndex((s: Session) => s.id === session.id);
+            if (sessionIndex > -1) {
                 const studentIndex = daySessions[sessionIndex].students.findIndex((s: SessionStudent) => s.id === student.id);
                 if (studentIndex > -1) {
                     masterSchedule[teacherName][session.day][sessionIndex].students[studentIndex].pendingRemoval = true;
@@ -595,10 +164,7 @@ const ScheduleGrid = ({
 
   const formatTimeForDisplay = (time: string) => {
       const date = new Date(`1970-01-01T${time}:00`);
-      return date.toLocaleTimeString(isRTL ? 'ar-SA' : 'en-US', { 
-        hour: 'numeric', 
-        hour12: true 
-      });
+      return date.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
   }
 
   const filteredSessions = useMemo(() => {
@@ -629,23 +195,12 @@ const ScheduleGrid = ({
 
   return (
     <>
-    <div 
-      id="schedule-grid-container" 
-      className={cn(
-        "grid gap-px bg-border",
-        isMobile ? "grid-cols-[auto_1fr]" : "grid-cols-[auto_repeat(6,_1fr)] -mx-4",
-        isRTL && "rtl"
-      )}
-      dir={isRTL ? 'rtl' : 'ltr'}
-    >
+    <div id="schedule-grid-container" className={cn("grid gap-px bg-border", isMobile ? "grid-cols-[auto_1fr]" : "grid-cols-[auto_repeat(6,_1fr)] -ml-4 -mr-4")}>
       {/* Time Column */}
       <div className="flex flex-col">
         <div className="h-12 bg-background"></div>
         {timeSlots.map(time => (
-            <div key={time} className={cn(
-              "h-28 flex items-start justify-center bg-background pt-2 px-2 text-xs text-muted-foreground",
-              isRTL && "font-arabic"
-            )}>
+            <div key={time} className="h-28 flex items-start justify-center bg-background pt-2 px-2 text-xs text-muted-foreground">
                 {formatTimeForDisplay(time)}
             </div>
         ))}
@@ -654,10 +209,7 @@ const ScheduleGrid = ({
       {/* Day Columns */}
       {days.map((day) => day && (
         <div key={day} className="relative col-span-1 bg-background">
-          <div className={cn(
-            "sticky top-16 z-10 bg-background/95 backdrop-blur-sm h-12 flex items-center justify-center font-semibold border-b",
-            isRTL && "font-arabic"
-          )}>
+          <div className="sticky top-16 z-10 bg-background/95 backdrop-blur-sm h-12 flex items-center justify-center font-semibold border-b">
             {getDayName(day)}
           </div>
           <div className="absolute top-12 left-0 w-full h-[calc(12_*_7rem)] grid grid-rows-[repeat(12,_7rem)] gap-px">
@@ -686,209 +238,138 @@ const ScheduleGrid = ({
                     height: `${session.duration * 7}rem` 
                   }}
                 >
-                  <Card className="w-full h-full flex flex-col shadow-sm bg-background/95 backdrop-blur-sm border-2 hover:border-primary/20 transition-colors">
-                    <CardHeader className="p-3 pb-2">
-                        <div className={cn(
-                          "flex items-center justify-between",
-                          isRTL && "flex-row-reverse"
-                        )}>
-                            <p className={cn(
-                              "font-semibold text-sm leading-tight",
-                              isRTL && "font-arabic text-right"
-                            )}>
-                              {session.specialization}
-                            </p>
-                            <Badge variant="secondary" className={cn(
-                              "text-xs font-normal",
-                              isRTL && "font-arabic"
-                            )}>
-                              {session.type}
-                            </Badge>
-                        </div>
-                        <p className={cn(
-                          "text-xs text-muted-foreground font-medium",
-                          isRTL && "font-arabic text-right"
-                        )}>
-                          {session.time} - {session.endTime}
-                        </p>
+                  <Card className="w-full h-full flex flex-col shadow-none bg-background/80 backdrop-blur-sm">
+                    <CardHeader className="p-2">
+                        <p className="font-semibold text-xs leading-tight">{session.specialization}</p>
+                        <p className="text-xs text-muted-foreground">{session.time} - {session.endTime}</p>
                     </CardHeader>
-                    <CardContent className="p-3 pt-0 flex-grow flex flex-col gap-2 overflow-hidden">
+                    <CardContent className="p-2 flex-grow flex flex-col gap-1 overflow-hidden">
+                      <div className="flex justify-between items-center text-xs">
+                        <Badge variant="secondary" className="font-normal">{session.type}</Badge>
+                      </div>
                       <Separator className="my-1"/>
-                      <div className="flex-grow overflow-y-auto space-y-2">
-                          {session.students && session.students.length > 0 ? (
-                              session.students.map((student: SessionStudent) => {
-                                  const isOnLeave = studentLeaves.some(l => l.personId === student.id);
-                                  const attendance = isOnLeave ? 'excused' : student.attendance;
+                              <div className="flex-grow overflow-y-auto pr-1">
+                                  {session.students && session.students.length > 0 ? (
+                                      <ul className="space-y-1 text-xs">
+                                          {session.students.map((student: SessionStudent) => {
+                                              const isOnLeave = studentLeaves.some(l => l.personId === student.id);
+                                              const attendance = isOnLeave ? 'excused' : student.attendance;
 
-                                  return (
-                                      <div key={student.id} className={cn(
-                                          "flex items-center justify-between p-2.5 rounded-lg bg-muted/30 hover:bg-muted/50 transition-all duration-200 group/student border",
-                                          student.pendingRemoval && "opacity-60 bg-destructive/10 border-destructive/20",
-                                          !student.pendingRemoval && "border-border hover:border-primary/20",
-                                          isRTL && "flex-row-reverse"
-                                      )}>
-                                          <div className={cn(
-                                            "flex items-center gap-2.5 flex-1 min-w-0",
-                                            isRTL && "flex-row-reverse"
-                                          )}>
-                                              <div className="relative">
-                                                  <User className="h-4 w-4 text-muted-foreground" />
-                                                  {/* Attendance Status Dot */}
-                                                  <div className={cn(
-                                                      "absolute w-2.5 h-2.5 rounded-full border-2 border-background",
-                                                      isRTL ? "-bottom-1 -left-1" : "-bottom-1 -right-1",
-                                                      attendance === 'present' && "bg-green-500",
-                                                      attendance === 'absent' && "bg-red-500",
-                                                      attendance === 'late' && "bg-amber-500",
-                                                      attendance === 'excused' && "bg-blue-500",
-                                                      !attendance && "bg-gray-300"
-                                                  )} />
-                                              </div>
-                                              <span className={cn(
-                                                "font-medium text-sm truncate",
-                                                isRTL && "font-arabic text-right"
-                                              )}>
-                                                {student.name}
-                                              </span>
-                                              <div className={cn(
-                                                "flex gap-1",
-                                                isRTL && "flex-row-reverse"
-                                              )}>
-                                                  {student.pendingRemoval && (
-                                                      <Badge variant="destructive" className={cn(
-                                                        "text-[10px] px-1.5 py-0.5 h-5",
-                                                        isRTL && "font-arabic flex-row-reverse"
-                                                      )}>
-                                                          <Hourglass className={cn(
-                                                            "h-2.5 w-2.5",
-                                                            isRTL ? "ml-1" : "mr-1"
+                                              return (
+                                                  <li key={student.id} className={cn(
+                                                      "flex justify-between items-center p-2 rounded-md bg-muted/50 hover:bg-muted transition-colors group/student",
+                                                      student.pendingRemoval && "opacity-50 bg-destructive/10"
+                                                  )}>
+                                                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                          <User className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                                          <span className="font-medium truncate">{student.name}</span>
+                                                          {student.pendingRemoval && (
+                                                              <Badge variant="destructive" className="text-[10px] px-1 py-0">
+                                                                  <Hourglass className="h-2 w-2 mr-1" />
+                                                                  Pending
+                                                              </Badge>
+                                                          )}
+                                                          {isOnLeave && (
+                                                              <Badge variant="outline" className="text-[10px] px-1 py-0">
+                                                                  On Leave
+                                                              </Badge>
+                                                          )}
+                                                      </div>
+                                                      <div className="flex items-center gap-1 shrink-0">
+                                                          {/* Attendance Status Indicator */}
+                                                          <div className={cn(
+                                                              "w-2 h-2 rounded-full",
+                                                              attendance === 'present' && "bg-green-500",
+                                                              attendance === 'absent' && "bg-red-500",
+                                                              attendance === 'late' && "bg-amber-500",
+                                                              attendance === 'excused' && "bg-blue-500",
+                                                              !attendance && "bg-gray-300"
                                                           )} />
-                                                          {t('status.pending')}
-                                                      </Badge>
-                                                  )}
-                                                  {isOnLeave && (
-                                                      <Badge variant="outline" className={cn(
-                                                        "text-[10px] px-1.5 py-0.5 h-5 border-blue-200 text-blue-700",
-                                                        isRTL && "font-arabic"
-                                                      )}>
-                                                          {t('status.onLeave')}
-                                                      </Badge>
-                                                  )}
-                                              </div>
-                                          </div>
-                                          <div className={cn(
-                                            "flex items-center gap-1 shrink-0",
-                                            isRTL && "flex-row-reverse"
-                                          )}>
-                                              {/* Attendance Popover */}
-                                              <Popover>
-                                                  <PopoverTrigger asChild>
-                                                      <Button
-                                                          variant="ghost"
-                                                          size="icon"
-                                                          className="h-7 w-7 opacity-70 hover:opacity-100 group-hover/student:opacity-100 transition-all duration-200 hover:bg-primary/10 hover:text-primary"
-                                                          title={t('attendance.markAttendance')}
-                                                      >
-                                                          <GripVertical className="h-3.5 w-3.5" />
-                                                      </Button>
-                                                  </PopoverTrigger>
-                                                  <PopoverContent className="w-auto p-2" align={isRTL ? "start" : "end"}>
-                                                      <div className={cn(
-                                                        "flex gap-1",
-                                                        isRTL && "flex-row-reverse"
-                                                      )}>
+
+                                                          {/* Attendance Popover */}
+                                                          <Popover>
+                                                              <PopoverTrigger asChild>
+                                                                  <Button
+                                                                      variant="ghost"
+                                                                      size="icon"
+                                                                      className="h-5 w-5 opacity-0 group-hover/student:opacity-100 transition-opacity hover:bg-background"
+                                                                      title="Mark Attendance"
+                                                                  >
+                                                                      <GripVertical className="h-3 w-3" />
+                                                                  </Button>
+                                                              </PopoverTrigger>
+                                                              <PopoverContent className="w-auto p-1" align="end">
+                                                                  <div className="flex gap-1">
+                                                                      <Button
+                                                                          onClick={() => handleUpdateAttendance(student.id, session.id, day, 'present')}
+                                                                          variant="ghost"
+                                                                          size="icon"
+                                                                          className="h-7 w-7 hover:bg-green-50"
+                                                                          title="Present"
+                                                                      >
+                                                                          <Check className="h-3 w-3 text-green-600" />
+                                                                      </Button>
+                                                                      <Button
+                                                                          onClick={() => handleUpdateAttendance(student.id, session.id, day, 'absent')}
+                                                                          variant="ghost"
+                                                                          size="icon"
+                                                                          className="h-7 w-7 hover:bg-red-50"
+                                                                          title="Absent"
+                                                                      >
+                                                                          <X className="h-3 w-3 text-red-600" />
+                                                                      </Button>
+                                                                      <Button
+                                                                          onClick={() => handleUpdateAttendance(student.id, session.id, day, 'late')}
+                                                                          variant="ghost"
+                                                                          size="icon"
+                                                                          className="h-7 w-7 hover:bg-amber-50"
+                                                                          title="Late"
+                                                                      >
+                                                                          <Clock className="h-3 w-3 text-amber-600" />
+                                                                      </Button>
+                                                                      <Button
+                                                                          onClick={() => handleUpdateAttendance(student.id, session.id, day, 'excused')}
+                                                                          variant="ghost"
+                                                                          size="icon"
+                                                                          className="h-7 w-7 hover:bg-blue-50"
+                                                                          title="Excused"
+                                                                      >
+                                                                          <File className="h-3 w-3 text-blue-600" />
+                                                                      </Button>
+                                                                  </div>
+                                                              </PopoverContent>
+                                                          </Popover>
+
+                                                          {/* Delete Button - More Prominent */}
                                                           <Button
-                                                              onClick={() => handleUpdateAttendance(student.id, session.id, day, 'present')}
+                                                              onClick={() => handleRemoveStudent(student, session)}
                                                               variant="ghost"
                                                               size="icon"
-                                                              className="h-8 w-8 hover:bg-green-50 hover:text-green-700 transition-colors"
-                                                              title={t('attendance.present')}
+                                                              className="h-5 w-5 opacity-60 hover:opacity-100 group-hover/student:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
+                                                              title={`Remove ${student.name} from session`}
                                                           >
-                                                              <Check className="h-4 w-4" />
-                                                          </Button>
-                                                          <Button
-                                                              onClick={() => handleUpdateAttendance(student.id, session.id, day, 'absent')}
-                                                              variant="ghost"
-                                                              size="icon"
-                                                              className="h-8 w-8 hover:bg-red-50 hover:text-red-700 transition-colors"
-                                                              title={t('attendance.absent')}
-                                                          >
-                                                              <X className="h-4 w-4" />
-                                                          </Button>
-                                                          <Button
-                                                              onClick={() => handleUpdateAttendance(student.id, session.id, day, 'late')}
-                                                              variant="ghost"
-                                                              size="icon"
-                                                              className="h-8 w-8 hover:bg-amber-50 hover:text-amber-700 transition-colors"
-                                                              title={t('attendance.late')}
-                                                          >
-                                                              <Clock className="h-4 w-4" />
-                                                          </Button>
-                                                          <Button
-                                                              onClick={() => handleUpdateAttendance(student.id, session.id, day, 'excused')}
-                                                              variant="ghost"
-                                                              size="icon"
-                                                              className="h-8 w-8 hover:bg-blue-50 hover:text-blue-700 transition-colors"
-                                                              title={t('attendance.excused')}
-                                                          >
-                                                              <File className="h-4 w-4" />
+                                                              <Trash2 className="h-3 w-3" />
                                                           </Button>
                                                       </div>
-                                                  </PopoverContent>
-                                              </Popover>
-
-                                              {/* Enhanced Delete Button */}
-                                              <Button
-                                                  onClick={() => handleRemoveStudent(student, session)}
-                                                  variant="ghost"
-                                                  size="icon"
-                                                  className="h-7 w-7 opacity-70 hover:opacity-100 group-hover/student:opacity-100 transition-all duration-200 hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive"
-                                                  title={t('actions.removeStudent', { studentName: student.name })}
-                                              >
-                                                  <Trash2 className="h-3.5 w-3.5" />
-                                              </Button>
+                                                  </li>
+                                              )
+                                          })}
+                                      </ul>
+                                  ) : (
+                                      <div className="flex-grow flex items-center justify-center py-4">
+                                          <div className="text-center">
+                                              <User className="h-6 w-6 mx-auto text-muted-foreground/50 mb-2" />
+                                              <p className="text-xs text-muted-foreground">{t('schedule.noStudentsEnrolled')}</p>
                                           </div>
                                       </div>
-                                  )
-                              })
-                          ) : (
-                              <div className="flex-grow flex items-center justify-center py-6">
-                                  <div className={cn(
-                                    "text-center",
-                                    isRTL && "text-right"
-                                  )}>
-                                      <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-3">
-                                          <User className="h-6 w-6 text-muted-foreground/60" />
-                                      </div>
-                                      <p className={cn(
-                                        "text-sm text-muted-foreground font-medium",
-                                        isRTL && "font-arabic"
-                                      )}>
-                                        {t('schedule.noStudentsEnrolled')}
-                                      </p>
-                                      <p className={cn(
-                                        "text-xs text-muted-foreground/80 mt-1",
-                                        isRTL && "font-arabic"
-                                      )}>
-                                        {t('schedule.addStudentsToStart')}
-                                      </p>
-                                  </div>
+                                  )}
                               </div>
-                          )}
-                      </div>
                     </CardContent>
                     {semester && (
-                        <CardFooter className="p-2 border-t bg-muted/20">
+                        <CardFooter className="p-1 border-t">
                             <AddStudentDialog session={session} semester={semester} teacherName={teacherName} onStudentAdded={onUpdate} asChild>
-                                <Button variant="ghost" size="sm" className={cn(
-                                  "w-full h-8 text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors font-normal",
-                                  isRTL && "font-arabic flex-row-reverse"
-                                )}>
-                                    <UserPlus className={cn(
-                                      "h-3.5 w-3.5",
-                                      isRTL ? "ml-2" : "mr-2"
-                                    )} /> 
-                                    {t('actions.enrollStudent')}
+                                <Button variant="ghost" size="sm" className="w-full h-auto text-xs text-muted-foreground font-normal">
+                                    <UserPlus className="mr-2 h-3 w-3" /> {t('actions.enrollStudent')}
                                 </Button>
                             </AddStudentDialog>
                         </CardFooter>
@@ -914,7 +395,6 @@ const ScheduleGrid = ({
     </>
   );
 };
-
 
 export default function DashboardPage() {
     const { user, users } = useAuth();
@@ -1064,25 +544,17 @@ export default function DashboardPage() {
         setForceUpdate({}); // Force re-render if needed
     };
 
-    const handleExportPDF = async () => {
+    const handleExportPDF = () => {
         const scheduleElement = document.getElementById('schedule-grid-container');
         if (scheduleElement) {
-            try {
-                const canvas = await html2canvas(scheduleElement, {
-                    scale: 2,
-                    useCORS: true,
-                    allowTaint: false
-                });
+            html2canvas(scheduleElement).then(canvas => {
                 const imgData = canvas.toDataURL('image/png');
                 const pdf = new jsPDF('l', 'mm', 'a4');
                 const pdfWidth = pdf.internal.pageSize.getWidth();
                 const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
                 pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
                 pdf.save(`schedule-${selectedTeacher}-${weekStart}.pdf`);
-            } catch (error) {
-                console.error('PDF export failed:', error);
-                // Fallback or error handling
-            }
+            });
         }
     };
     
@@ -1091,30 +563,17 @@ export default function DashboardPage() {
         csvContent += `"${t('csv.day')}","${t('csv.time')}","${t('csv.specialization')}","${t('csv.type')}","${t('csv.studentName')}","${t('csv.attendance')}"\n`;
 
         processedSessions.forEach(session => {
-            if (session.students.length > 0) {
-                session.students.forEach(student => {
-                    const row = [
-                        `"${session.day}"`,
-                        `"${session.time}"`,
-                        `"${session.specialization}"`,
-                        `"${session.type}"`,
-                        `"${student.name}"`,
-                        `"${student.attendance ? t(`attendance.${student.attendance}`) : t('common.na')}"`
-                    ].join(",");
-                    csvContent += row + "\r\n";
-                });
-            } else {
-                // Include sessions with no students
+            session.students.forEach(student => {
                 const row = [
                     `"${session.day}"`,
                     `"${session.time}"`,
                     `"${session.specialization}"`,
                     `"${session.type}"`,
-                    `"${t('schedule.noStudentsEnrolled')}"`,
-                    `"${t('common.na')}"`
+                    `"${student.name}"`,
+                    `"${student.attendance ? t(`attendance.${student.attendance}`) : t('common.na')}"`
                 ].join(",");
                 csvContent += row + "\r\n";
-            }
+            });
         });
 
         const encodedUri = encodeURI(csvContent);
@@ -1126,35 +585,10 @@ export default function DashboardPage() {
         document.body.removeChild(link);
     };
 
-    // Summary Statistics
-    const scheduleStats = useMemo(() => {
-        const totalSessions = processedSessions.length;
-        const totalStudents = processedSessions.reduce((sum, session) => sum + session.students.length, 0);
-        const studentsPresent = processedSessions.reduce((sum, session) => 
-            sum + session.students.filter(s => s.attendance === 'present').length, 0
-        );
-        const studentsAbsent = processedSessions.reduce((sum, session) => 
-            sum + session.students.filter(s => s.attendance === 'absent').length, 0
-        );
-        const studentsOnLeave = studentLeavesForWeek.length;
-        
-        return {
-            totalSessions,
-            totalStudents,
-            studentsPresent,
-            studentsAbsent,
-            studentsOnLeave,
-            attendanceRate: totalStudents > 0 ? Math.round((studentsPresent / totalStudents) * 100) : 0
-        };
-    }, [processedSessions, studentLeavesForWeek]);
-
     if (dbLoading || !selectedDate) {
         return (
             <div className="flex h-[calc(100vh-8rem)] items-center justify-center">
-                <div className="flex flex-col items-center gap-4">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
-                </div>
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
         );
     }
@@ -1162,203 +596,91 @@ export default function DashboardPage() {
     const weekEnd = addDays(new Date(weekStart), 5);
     
     return (
-        <div className="space-y-6">
-            {/* Header Section */}
+        <div className="space-y-4">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-3 self-start">
-                    <h1 className="text-3xl font-bold tracking-tight">{t('dashboard.title')}</h1>
-                    {isTeacherOnLeave && (
-                        <Badge variant="destructive" className="text-xs">
-                            <Clock className="h-3 w-3 mr-1" />
-                            {t('status.onLeave')}
-                        </Badge>
-                    )}
-                </div>
+                <h1 className="text-2xl font-headline self-start">{t('dashboard.title')}</h1>
                  {isAdmin && (
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                        <Button variant="outline" className="w-full sm:w-auto hover:bg-primary/5" onClick={() => setIsEnrolling(true)}>
-                            <UserPlus className="mr-2 h-4 w-4"/> {t('actions.enrollStudent')}
+                        <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsEnrolling(true)}>
+                            <UserPlus/> {t('actions.enrollStudent')}
                         </Button>
-                        <Button variant="outline" className="w-full sm:w-auto hover:bg-primary/5" onClick={() => setIsImporting(true)}>
-                            <Upload className="mr-2 h-4 w-4"/> {t('actions.import')}
+                        <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsImporting(true)}>
+                            <Upload/> {t('actions.import')}
                         </Button>
-                        <Button variant="outline" className="w-full sm:w-auto hover:bg-primary/5" onClick={handleExportPDF}>
-                            <FileText className="mr-2 h-4 w-4"/> {t('actions.exportPDF')}
+                        <Button variant="outline" className="w-full sm:w-auto" onClick={handleExportPDF}>
+                            <FileText/> {t('actions.exportPDF')}
                         </Button>
-                        <Button variant="outline" className="w-full sm:w-auto hover:bg-primary/5" onClick={handleExportCSV}>
-                            <FileDown className="mr-2 h-4 w-4"/> {t('actions.exportCSV')}
+                        <Button variant="outline" className="w-full sm:w-auto" onClick={handleExportCSV}>
+                            <FileDown/> {t('actions.exportCSV')}
                         </Button>
                     </div>
                  )}
             </div>
-
-            {/* Stats Cards */}
-            {processedSessions.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                    <Card className="hover:shadow-md transition-shadow">
-                        <CardContent className="p-4">
-                            <div className="flex items-center gap-2">
-                                <BarChart3 className="h-4 w-4 text-blue-500" />
-                                <p className="text-sm font-medium text-muted-foreground">{t('stats.sessions')}</p>
-                            </div>
-                            <p className="text-2xl font-bold mt-1">{scheduleStats.totalSessions}</p>
-                        </CardContent>
-                    </Card>
-                    <Card className="hover:shadow-md transition-shadow">
-                        <CardContent className="p-4">
-                            <div className="flex items-center gap-2">
-                                <Users className="h-4 w-4 text-purple-500" />
-                                <p className="text-sm font-medium text-muted-foreground">{t('stats.totalStudents')}</p>
-                            </div>
-                            <p className="text-2xl font-bold mt-1">{scheduleStats.totalStudents}</p>
-                        </CardContent>
-                    </Card>
-                    <Card className="hover:shadow-md transition-shadow">
-                        <CardContent className="p-4">
-                            <div className="flex items-center gap-2">
-                                <Check className="h-4 w-4 text-green-500" />
-                                <p className="text-sm font-medium text-muted-foreground">{t('stats.present')}</p>
-                            </div>
-                            <p className="text-2xl font-bold mt-1">{scheduleStats.studentsPresent}</p>
-                        </CardContent>
-                    </Card>
-                    <Card className="hover:shadow-md transition-shadow">
-                        <CardContent className="p-4">
-                            <div className="flex items-center gap-2">
-                                <X className="h-4 w-4 text-red-500" />
-                                <p className="text-sm font-medium text-muted-foreground">{t('stats.absent')}</p>
-                            </div>
-                            <p className="text-2xl font-bold mt-1">{scheduleStats.studentsAbsent}</p>
-                        </CardContent>
-                    </Card>
-                    <Card className="hover:shadow-md transition-shadow">
-                        <CardContent className="p-4">
-                            <div className="flex items-center gap-2">
-                                <File className="h-4 w-4 text-blue-500" />
-                                <p className="text-sm font-medium text-muted-foreground">{t('stats.onLeave')}</p>
-                            </div>
-                            <p className="text-2xl font-bold mt-1">{scheduleStats.studentsOnLeave}</p>
-                        </CardContent>
-                    </Card>
-                    <Card className="hover:shadow-md transition-shadow">
-                        <CardContent className="p-4">
-                            <div className="flex items-center gap-2">
-                                <BarChart3 className="h-4 w-4 text-emerald-500" />
-                                <p className="text-sm font-medium text-muted-foreground">{t('stats.attendance')}</p>
-                            </div>
-                            <p className="text-2xl font-bold mt-1">{scheduleStats.attendanceRate}%</p>
-                        </CardContent>
-                    </Card>
-                </div>
-            )}
             
-            {/* Controls Card */}
-            <Card className="shadow-sm">
+            <Card>
                 <CardContent className="p-4 flex flex-col xl:flex-row xl:items-center gap-4">
                     {isAdmin && (
                         <>
-                            <div className="w-full xl:w-auto flex items-center gap-3">
+                            <div className="w-full xl:w-auto flex items-center gap-2">
                                 <BarChart3 className="w-5 h-5 text-muted-foreground" />
                                 <Select value={selectedSemesterId || ""} onValueChange={setSelectedSemesterId}>
-                                  <SelectTrigger className="w-full xl:w-[200px]">
+                                  <SelectTrigger className="w-full xl:w-[180px]">
                                     <SelectValue placeholder={t('dashboard.selectSemester')} />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {semestersState.map(s => (
-                                        <SelectItem key={s.id} value={s.id || ""}>
-                                            {s.name}
-                                        </SelectItem>
-                                    ))}
+                                    {semestersState.map(s => <SelectItem key={s.id} value={s.id || ""}>{s.name}</SelectItem>)}
                                   </SelectContent>
                                 </Select>
                             </div>
-                            <div className="w-full xl:w-auto flex items-center gap-3">
+                            <div className="w-full xl:w-auto flex items-center gap-2">
                                  <Users className="w-5 h-5 text-muted-foreground" />
                                  <Select value={selectedTeacher} onValueChange={setSelectedTeacher} disabled={!selectedSemesterId || availableTeachers.length === 0}>
-                                  <SelectTrigger className="w-full xl:w-[200px]">
+                                  <SelectTrigger className="w-full xl:w-[180px]">
                                     <SelectValue placeholder={t('dashboard.selectTeacher')} />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {availableTeachers.map(teacher => (
-                                        <SelectItem key={teacher.id} value={teacher.name || ""}>
-                                            {teacher.name}
-                                        </SelectItem>
-                                    ))}
+                                    {availableTeachers.map(t => <SelectItem key={t.id} value={t.name || ""}>{t.name}</SelectItem>)}
                                   </SelectContent>
                                 </Select>
                             </div>
                         </>
                     )}
-                     <div className="w-full xl:w-auto flex items-center gap-3">
+                     <div className="w-full xl:w-auto flex items-center gap-2">
                         <CalendarIcon className="w-5 h-5 text-muted-foreground" />
                         <Popover>
                             <PopoverTrigger asChild>
-                                <Button variant="outline" className="w-full xl:w-[260px] justify-start text-left font-normal">
+                                <Button variant="outline" className="w-full xl:w-[240px] justify-start text-left font-normal">
                                     <span>{format(new Date(weekStart), 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}</span>
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
-                                <CalendarComponent 
-                                    mode="single" 
-                                    selected={selectedDate || undefined} 
-                                    onSelect={(date) => date && setSelectedDate(date)} 
-                                    initialFocus
-                                />
+                                <CalendarComponent mode="single" selected={selectedDate || undefined} onSelect={(date) => date && setSelectedDate(date)} initialFocus/>
                             </PopoverContent>
                         </Popover>
                         <div className="flex items-center gap-1">
-                            <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-9 w-9 hover:bg-primary/10" 
-                                onClick={() => setSelectedDate(addDays(selectedDate!, -7))}
-                                title="Previous Week"
-                            >
-                                <ChevronLeft className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-9 w-9 hover:bg-primary/10" 
-                                onClick={() => setSelectedDate(addDays(selectedDate!, 7))}
-                                title="Next Week"
-                            >
-                                <ChevronRight className="h-4 w-4" />
-                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedDate(addDays(selectedDate!, -7))}><ChevronLeft /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedDate(addDays(selectedDate!, 7))}><ChevronRight /></Button>
                         </div>
                     </div>
                     <div className="w-full xl:w-auto flex items-center gap-2 xl:ml-auto">
                          <Tabs value={dayFilter} onValueChange={setDayFilter} className="w-full md:w-auto">
-                            <TabsList className="grid w-full grid-cols-4 md:grid-cols-7 bg-muted/50">
-                                <TabsTrigger value="All" className="text-xs">{t('days.all')}</TabsTrigger>
-                                <TabsTrigger value="Saturday" className="text-xs">{t('days.satShort')}</TabsTrigger>
-                                <TabsTrigger value="Sunday" className="text-xs">{t('days.sunShort')}</TabsTrigger>
-                                <TabsTrigger value="Monday" className="text-xs">{t('days.monShort')}</TabsTrigger>
-                                <TabsTrigger value="Tuesday" className="text-xs">{t('days.tueShort')}</TabsTrigger>
-                                <TabsTrigger value="Wednesday" className="text-xs">{t('days.wedShort')}</TabsTrigger>
-                                <TabsTrigger value="Thursday" className="text-xs">{t('days.thuShort')}</TabsTrigger>
+                            <TabsList className="grid w-full grid-cols-4 md:grid-cols-7">
+                                <TabsTrigger value="All">{t('days.all')}</TabsTrigger>
+                                <TabsTrigger value="Saturday">{t('days.satShort')}</TabsTrigger>
+                                <TabsTrigger value="Sunday">{t('days.sunShort')}</TabsTrigger>
+                                <TabsTrigger value="Monday">{t('days.monShort')}</TabsTrigger>
+                                <TabsTrigger value="Tuesday">{t('days.tueShort')}</TabsTrigger>
+                                <TabsTrigger value="Wednesday">{t('days.wedShort')}</TabsTrigger>
+                                <TabsTrigger value="Thursday">{t('days.thuShort')}</TabsTrigger>
                             </TabsList>
                          </Tabs>
                     </div>
                 </CardContent>
             </Card>
 
-            {/* Schedule Grid */}
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="overflow-x-auto">
                 {isTeacherOnLeave ? (
-                     <Card className="border-0">
-                         <CardContent className="p-8 text-center">
-                             <div className="flex flex-col items-center gap-4">
-                                 <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center">
-                                     <Clock className="h-8 w-8 text-muted-foreground" />
-                                 </div>
-                                 <div>
-                                     <h3 className="text-lg font-semibold mb-2">{t('schedule.onLeaveTitle')}</h3>
-                                     <p className="text-muted-foreground">{t('schedule.onLeaveMessage')}</p>
-                                 </div>
-                             </div>
-                         </CardContent>
-                     </Card>
+                     <Card><CardContent className="p-6 text-center text-muted-foreground">{t('schedule.onLeaveMessage')}</CardContent></Card>
                 ) : selectedTeacher ? (
                     <ScheduleGrid 
                         processedSessions={processedSessions} 
@@ -1370,23 +692,10 @@ export default function DashboardPage() {
                         studentLeaves={studentLeavesForWeek}
                     />
                 ) : (
-                    <Card className="border-0">
-                        <CardContent className="p-8 text-center">
-                            <div className="flex flex-col items-center gap-4">
-                                <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center">
-                                    <Users className="h-8 w-8 text-muted-foreground" />
-                                </div>
-                                <div>
-                                    <h3 className="text-lg font-semibold mb-2">{t('schedule.selectTeacherTitle')}</h3>
-                                    <p className="text-muted-foreground">{t('schedule.selectTeacherMessage')}</p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    <Card><CardContent className="p-6 text-center text-muted-foreground">{t('schedule.selectTeacherMessage')}</CardContent></Card>
                 )}
             </div>
 
-             {/* Dialog Components */}
              {selectedSemester && (
                 <EnrollStudentDialog 
                     isOpen={isEnrolling} 
