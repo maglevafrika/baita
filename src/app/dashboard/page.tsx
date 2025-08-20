@@ -494,14 +494,15 @@ const ScheduleGrid = ({
   weekStartDate: string; 
   studentLeaves: Leave[] 
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isRTL = i18n.language === 'ar' || i18n.dir() === 'rtl';
   
   // Define the day keys and their order
   const allDaysKeys = ["Saturday", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"];
   
   const isMobile = useIsMobile();
   const days = isMobile && dayFilter.toLowerCase() !== 'all' ? [dayFilter] : allDaysKeys;
-  const timeSlots = Array.from({ length: 12 }, (_, i) => `${i + 10}:00`); // 10 AM to 9 PM (for slots ending at 10 PM)
+  const timeSlots = Array.from({ length: 12 }, (_, i) => `${i + 10}:00`); // 10 AM to 9 PM
   const { user } = useAuth();
   const { toast } = useToast();
   const { updateSemester, addTeacherRequest, updateStudent, students: allStudents } = useDatabase();
@@ -510,7 +511,6 @@ const ScheduleGrid = ({
 
   const handleUpdateAttendance = async (studentId: string, sessionId: string, day: string, status: SessionStudent['attendance']) => {
       if (!semester || !user || !weekStartDate) return;
-      const attendancePath = `weeklyAttendance.${weekStartDate}.${teacherName}.${sessionId}.${studentId}`;
       
       const updatedWeeklyAttendance = JSON.parse(JSON.stringify(semester.weeklyAttendance || {}));
       if (!updatedWeeklyAttendance[weekStartDate]) updatedWeeklyAttendance[weekStartDate] = {};
@@ -558,8 +558,8 @@ const ScheduleGrid = ({
             // Also mark student as pending removal in master schedule
             const masterSchedule = JSON.parse(JSON.stringify(semester.masterSchedule));
             const daySessions = masterSchedule[teacherName]?.[session.day];
-            const sessionIndex = daySessions.findIndex((s: Session) => s.id === session.id);
-            if (sessionIndex > -1) {
+            const sessionIndex = daySessions?.findIndex((s: Session) => s.id === session.id);
+            if (sessionIndex !== undefined && sessionIndex > -1) {
                 const studentIndex = daySessions[sessionIndex].students.findIndex((s: SessionStudent) => s.id === student.id);
                 if (studentIndex > -1) {
                     masterSchedule[teacherName][session.day][sessionIndex].students[studentIndex].pendingRemoval = true;
@@ -595,7 +595,10 @@ const ScheduleGrid = ({
 
   const formatTimeForDisplay = (time: string) => {
       const date = new Date(`1970-01-01T${time}:00`);
-      return date.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
+      return date.toLocaleTimeString(isRTL ? 'ar-SA' : 'en-US', { 
+        hour: 'numeric', 
+        hour12: true 
+      });
   }
 
   const filteredSessions = useMemo(() => {
@@ -626,12 +629,23 @@ const ScheduleGrid = ({
 
   return (
     <>
-    <div id="schedule-grid-container" className={cn("grid gap-px bg-border", isMobile ? "grid-cols-[auto_1fr]" : "grid-cols-[auto_repeat(6,_1fr)] -ml-4 -mr-4")}>
+    <div 
+      id="schedule-grid-container" 
+      className={cn(
+        "grid gap-px bg-border",
+        isMobile ? "grid-cols-[auto_1fr]" : "grid-cols-[auto_repeat(6,_1fr)] -mx-4",
+        isRTL && "rtl"
+      )}
+      dir={isRTL ? 'rtl' : 'ltr'}
+    >
       {/* Time Column */}
       <div className="flex flex-col">
         <div className="h-12 bg-background"></div>
         {timeSlots.map(time => (
-            <div key={time} className="h-28 flex items-start justify-center bg-background pt-2 px-2 text-xs text-muted-foreground">
+            <div key={time} className={cn(
+              "h-28 flex items-start justify-center bg-background pt-2 px-2 text-xs text-muted-foreground",
+              isRTL && "font-arabic"
+            )}>
                 {formatTimeForDisplay(time)}
             </div>
         ))}
@@ -640,7 +654,10 @@ const ScheduleGrid = ({
       {/* Day Columns */}
       {days.map((day) => day && (
         <div key={day} className="relative col-span-1 bg-background">
-          <div className="sticky top-16 z-10 bg-background/95 backdrop-blur-sm h-12 flex items-center justify-center font-semibold border-b">
+          <div className={cn(
+            "sticky top-16 z-10 bg-background/95 backdrop-blur-sm h-12 flex items-center justify-center font-semibold border-b",
+            isRTL && "font-arabic"
+          )}>
             {getDayName(day)}
           </div>
           <div className="absolute top-12 left-0 w-full h-[calc(12_*_7rem)] grid grid-rows-[repeat(12,_7rem)] gap-px">
@@ -671,11 +688,29 @@ const ScheduleGrid = ({
                 >
                   <Card className="w-full h-full flex flex-col shadow-sm bg-background/95 backdrop-blur-sm border-2 hover:border-primary/20 transition-colors">
                     <CardHeader className="p-3 pb-2">
-                        <div className="flex items-center justify-between">
-                            <p className="font-semibold text-sm leading-tight">{session.specialization}</p>
-                            <Badge variant="secondary" className="text-xs font-normal">{session.type}</Badge>
+                        <div className={cn(
+                          "flex items-center justify-between",
+                          isRTL && "flex-row-reverse"
+                        )}>
+                            <p className={cn(
+                              "font-semibold text-sm leading-tight",
+                              isRTL && "font-arabic text-right"
+                            )}>
+                              {session.specialization}
+                            </p>
+                            <Badge variant="secondary" className={cn(
+                              "text-xs font-normal",
+                              isRTL && "font-arabic"
+                            )}>
+                              {session.type}
+                            </Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground font-medium">{session.time} - {session.endTime}</p>
+                        <p className={cn(
+                          "text-xs text-muted-foreground font-medium",
+                          isRTL && "font-arabic text-right"
+                        )}>
+                          {session.time} - {session.endTime}
+                        </p>
                     </CardHeader>
                     <CardContent className="p-3 pt-0 flex-grow flex flex-col gap-2 overflow-hidden">
                       <Separator className="my-1"/>
@@ -689,14 +724,19 @@ const ScheduleGrid = ({
                                       <div key={student.id} className={cn(
                                           "flex items-center justify-between p-2.5 rounded-lg bg-muted/30 hover:bg-muted/50 transition-all duration-200 group/student border",
                                           student.pendingRemoval && "opacity-60 bg-destructive/10 border-destructive/20",
-                                          !student.pendingRemoval && "border-border hover:border-primary/20"
+                                          !student.pendingRemoval && "border-border hover:border-primary/20",
+                                          isRTL && "flex-row-reverse"
                                       )}>
-                                          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                                          <div className={cn(
+                                            "flex items-center gap-2.5 flex-1 min-w-0",
+                                            isRTL && "flex-row-reverse"
+                                          )}>
                                               <div className="relative">
                                                   <User className="h-4 w-4 text-muted-foreground" />
                                                   {/* Attendance Status Dot */}
                                                   <div className={cn(
-                                                      "absolute -bottom-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-background",
+                                                      "absolute w-2.5 h-2.5 rounded-full border-2 border-background",
+                                                      isRTL ? "-bottom-1 -left-1" : "-bottom-1 -right-1",
                                                       attendance === 'present' && "bg-green-500",
                                                       attendance === 'absent' && "bg-red-500",
                                                       attendance === 'late' && "bg-amber-500",
@@ -704,22 +744,42 @@ const ScheduleGrid = ({
                                                       !attendance && "bg-gray-300"
                                                   )} />
                                               </div>
-                                              <span className="font-medium text-sm truncate">{student.name}</span>
-                                              <div className="flex gap-1">
+                                              <span className={cn(
+                                                "font-medium text-sm truncate",
+                                                isRTL && "font-arabic text-right"
+                                              )}>
+                                                {student.name}
+                                              </span>
+                                              <div className={cn(
+                                                "flex gap-1",
+                                                isRTL && "flex-row-reverse"
+                                              )}>
                                                   {student.pendingRemoval && (
-                                                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5 h-5">
-                                                          <Hourglass className="h-2.5 w-2.5 mr-1" />
-                                                          Pending
+                                                      <Badge variant="destructive" className={cn(
+                                                        "text-[10px] px-1.5 py-0.5 h-5",
+                                                        isRTL && "font-arabic flex-row-reverse"
+                                                      )}>
+                                                          <Hourglass className={cn(
+                                                            "h-2.5 w-2.5",
+                                                            isRTL ? "ml-1" : "mr-1"
+                                                          )} />
+                                                          {t('status.pending')}
                                                       </Badge>
                                                   )}
                                                   {isOnLeave && (
-                                                      <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 h-5 border-blue-200 text-blue-700">
-                                                          On Leave
+                                                      <Badge variant="outline" className={cn(
+                                                        "text-[10px] px-1.5 py-0.5 h-5 border-blue-200 text-blue-700",
+                                                        isRTL && "font-arabic"
+                                                      )}>
+                                                          {t('status.onLeave')}
                                                       </Badge>
                                                   )}
                                               </div>
                                           </div>
-                                          <div className="flex items-center gap-1 shrink-0">
+                                          <div className={cn(
+                                            "flex items-center gap-1 shrink-0",
+                                            isRTL && "flex-row-reverse"
+                                          )}>
                                               {/* Attendance Popover */}
                                               <Popover>
                                                   <PopoverTrigger asChild>
@@ -727,19 +787,22 @@ const ScheduleGrid = ({
                                                           variant="ghost"
                                                           size="icon"
                                                           className="h-7 w-7 opacity-70 hover:opacity-100 group-hover/student:opacity-100 transition-all duration-200 hover:bg-primary/10 hover:text-primary"
-                                                          title="Mark Attendance"
+                                                          title={t('attendance.markAttendance')}
                                                       >
                                                           <GripVertical className="h-3.5 w-3.5" />
                                                       </Button>
                                                   </PopoverTrigger>
-                                                  <PopoverContent className="w-auto p-2" align="end">
-                                                      <div className="flex gap-1">
+                                                  <PopoverContent className="w-auto p-2" align={isRTL ? "start" : "end"}>
+                                                      <div className={cn(
+                                                        "flex gap-1",
+                                                        isRTL && "flex-row-reverse"
+                                                      )}>
                                                           <Button
                                                               onClick={() => handleUpdateAttendance(student.id, session.id, day, 'present')}
                                                               variant="ghost"
                                                               size="icon"
                                                               className="h-8 w-8 hover:bg-green-50 hover:text-green-700 transition-colors"
-                                                              title="Present"
+                                                              title={t('attendance.present')}
                                                           >
                                                               <Check className="h-4 w-4" />
                                                           </Button>
@@ -748,7 +811,7 @@ const ScheduleGrid = ({
                                                               variant="ghost"
                                                               size="icon"
                                                               className="h-8 w-8 hover:bg-red-50 hover:text-red-700 transition-colors"
-                                                              title="Absent"
+                                                              title={t('attendance.absent')}
                                                           >
                                                               <X className="h-4 w-4" />
                                                           </Button>
@@ -757,7 +820,7 @@ const ScheduleGrid = ({
                                                               variant="ghost"
                                                               size="icon"
                                                               className="h-8 w-8 hover:bg-amber-50 hover:text-amber-700 transition-colors"
-                                                              title="Late"
+                                                              title={t('attendance.late')}
                                                           >
                                                               <Clock className="h-4 w-4" />
                                                           </Button>
@@ -766,7 +829,7 @@ const ScheduleGrid = ({
                                                               variant="ghost"
                                                               size="icon"
                                                               className="h-8 w-8 hover:bg-blue-50 hover:text-blue-700 transition-colors"
-                                                              title="Excused"
+                                                              title={t('attendance.excused')}
                                                           >
                                                               <File className="h-4 w-4" />
                                                           </Button>
@@ -780,7 +843,7 @@ const ScheduleGrid = ({
                                                   variant="ghost"
                                                   size="icon"
                                                   className="h-7 w-7 opacity-70 hover:opacity-100 group-hover/student:opacity-100 transition-all duration-200 hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive"
-                                                  title={`Remove ${student.name} from session`}
+                                                  title={t('actions.removeStudent', { studentName: student.name })}
                                               >
                                                   <Trash2 className="h-3.5 w-3.5" />
                                               </Button>
@@ -790,12 +853,25 @@ const ScheduleGrid = ({
                               })
                           ) : (
                               <div className="flex-grow flex items-center justify-center py-6">
-                                  <div className="text-center">
+                                  <div className={cn(
+                                    "text-center",
+                                    isRTL && "text-right"
+                                  )}>
                                       <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-3">
                                           <User className="h-6 w-6 text-muted-foreground/60" />
                                       </div>
-                                      <p className="text-sm text-muted-foreground font-medium">{t('schedule.noStudentsEnrolled')}</p>
-                                      <p className="text-xs text-muted-foreground/80 mt-1">{t('schedule.addStudentsToStart')}</p>
+                                      <p className={cn(
+                                        "text-sm text-muted-foreground font-medium",
+                                        isRTL && "font-arabic"
+                                      )}>
+                                        {t('schedule.noStudentsEnrolled')}
+                                      </p>
+                                      <p className={cn(
+                                        "text-xs text-muted-foreground/80 mt-1",
+                                        isRTL && "font-arabic"
+                                      )}>
+                                        {t('schedule.addStudentsToStart')}
+                                      </p>
                                   </div>
                               </div>
                           )}
@@ -804,8 +880,15 @@ const ScheduleGrid = ({
                     {semester && (
                         <CardFooter className="p-2 border-t bg-muted/20">
                             <AddStudentDialog session={session} semester={semester} teacherName={teacherName} onStudentAdded={onUpdate} asChild>
-                                <Button variant="ghost" size="sm" className="w-full h-8 text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors font-normal">
-                                    <UserPlus className="mr-2 h-3.5 w-3.5" /> {t('actions.enrollStudent')}
+                                <Button variant="ghost" size="sm" className={cn(
+                                  "w-full h-8 text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors font-normal",
+                                  isRTL && "font-arabic flex-row-reverse"
+                                )}>
+                                    <UserPlus className={cn(
+                                      "h-3.5 w-3.5",
+                                      isRTL ? "ml-2" : "mr-2"
+                                    )} /> 
+                                    {t('actions.enrollStudent')}
                                 </Button>
                             </AddStudentDialog>
                         </CardFooter>
@@ -831,6 +914,7 @@ const ScheduleGrid = ({
     </>
   );
 };
+
 
 export default function DashboardPage() {
     const { user, users } = useAuth();
