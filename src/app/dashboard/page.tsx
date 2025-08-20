@@ -97,12 +97,16 @@ const EnrollStudentDialog = ({
     Object.values(teacherSchedule).forEach(sessions => {
       sessions.forEach(session => {
         if (session.id === selectedSession) {
-          session.students.forEach(student => enrolledStudentIds.add(student.id));
+          session.students.forEach(student => {
+            if (student.id !== undefined) {
+              enrolledStudentIds.add(student.id);
+            }
+          });
         }
       });
     });
 
-    return students.filter(student => !enrolledStudentIds.has(student.id));
+    return students.filter(student => student.id !== undefined && !enrolledStudentIds.has(student.id));
   }, [students, selectedSession, selectedTeacher, semester.masterSchedule]);
 
   // Get available sessions for selected teacher
@@ -152,7 +156,7 @@ const EnrollStudentDialog = ({
     try {
       // Create SessionStudent object
       const studentData: SessionStudent = {
-        id: studentToEnroll.id,
+        id: studentToEnroll.id ?? "",
         name: studentToEnroll.name,
         attendance: null
       };
@@ -177,11 +181,15 @@ const EnrollStudentDialog = ({
 
       // Update student's enrolled sessions
       const updatedEnrolledIn = [
-        ...studentToEnroll.enrolledIn,
+        ...studentToEnroll.enrolledIn.map(e => ({
+          semesterId: e.semesterId,
+          sessionId: e.sessionId,
+          teacher: (e as any).teacher ?? (e as any).teacherName ?? ""
+        })),
         {
           semesterId: semester.id || "",
           sessionId: selectedSession,
-          teacherName: selectedTeacher
+          teacher: selectedTeacher
         }
       ];
 
@@ -235,7 +243,7 @@ const EnrollStudentDialog = ({
               </SelectTrigger>
               <SelectContent>
                 {availableStudents.map(student => (
-                  <SelectItem key={student.id} value={student.id}>
+                  <SelectItem key={student.id ?? ""} value={student.id ?? ""}>
                     {student.name}
                   </SelectItem>
                 ))}
@@ -336,8 +344,8 @@ const AddStudentDialog = ({
 
   // Get students not already in this session
   const availableStudents = useMemo(() => {
-    const enrolledIds = session.students.map(s => s.id);
-    return students.filter(student => !enrolledIds.includes(student.id));
+    const enrolledIds = session.students.map(s => s.id).filter((id): id is string => id !== undefined);
+    return students.filter(student => student.id !== undefined && !enrolledIds.includes(student.id));
   }, [students, session.students]);
 
   const handleAddStudent = async () => {
@@ -350,7 +358,7 @@ const AddStudentDialog = ({
     try {
       // Create SessionStudent object
       const studentData: SessionStudent = {
-        id: studentToAdd.id,
+        id: studentToAdd.id ?? "",
         name: studentToAdd.name,
         attendance: null
       };
@@ -365,14 +373,18 @@ const AddStudentDialog = ({
       }
 
       // Update student's enrolled sessions
-      const updatedEnrolledIn = [
-        ...studentToAdd.enrolledIn,
-        {
-          semesterId: semester.id || "",
-          sessionId: session.id,
-          teacherName: teacherName
-        }
-      ];
+        const updatedEnrolledIn = [
+            ...studentToAdd.enrolledIn.map(e => ({
+                semesterId: e.semesterId,
+                sessionId: e.sessionId,
+                teacher: (e as any).teacher ?? (e as any).teacherName ?? ""
+            })),
+            {
+                semesterId: semester.id || "",
+                sessionId: session.id,
+                teacher: teacherName
+            }
+        ];
 
       await Promise.all([
         updateSemester(semester.id || "", { masterSchedule }),
@@ -429,7 +441,7 @@ const AddStudentDialog = ({
               </SelectTrigger>
               <SelectContent>
                 {availableStudents.map(student => (
-                  <SelectItem key={student.id} value={student.id}>
+                  <SelectItem key={student.id ?? ""} value={student.id ?? ""}>
                     {student.name}
                   </SelectItem>
                 ))}
