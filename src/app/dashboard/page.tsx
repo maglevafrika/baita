@@ -76,6 +76,7 @@ const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onU
   const { updateSemester, addTeacherRequest, updateStudent, students: allStudents } = useDatabase();
   
   const [sessionToCreate, setSessionToCreate] = useState<{day: string, time: string} | null>(null);
+  const [sessionToDeleteFrom, setSessionToDeleteFrom] = useState<ProcessedSession | null>(null);
 
   const handleUpdateAttendance = async (studentId: string, sessionId: string, day: string, status: SessionStudent['attendance']) => {
       if (!semester || !user || !weekStartDate) return;
@@ -346,7 +347,7 @@ const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onU
                                                               variant="ghost"
                                                               size="icon"
                                                               className="h-5 w-5 opacity-60 hover:opacity-100 group-hover/student:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
-                                                              title={`Remove ${student.name} from session`}
+                                                              title={t('actions.removeFromSession', { name: student.name })}
                                                           >
                                                               <Trash2 className="h-3 w-3" />
                                                           </Button>
@@ -367,11 +368,23 @@ const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onU
                     </CardContent>
                     {semester && (
                         <CardFooter className="p-1 border-t">
-                            <AddStudentDialog session={session} semester={semester} teacherName={teacherName} onStudentAdded={onUpdate} asChild>
-                                <Button variant="ghost" size="sm" className="w-full h-auto text-xs text-muted-foreground font-normal">
-                                    <UserPlus className="mr-2 h-3 w-3" /> {t('actions.enrollStudent')}
-                                </Button>
-                            </AddStudentDialog>
+                            <div className="flex w-full gap-1">
+                                <AddStudentDialog session={session} semester={semester} teacherName={teacherName} onStudentAdded={onUpdate} asChild>
+                                    <Button variant="ghost" size="sm" className="flex-1 h-auto text-xs text-muted-foreground font-normal">
+                                        <UserPlus className="mr-2 h-3 w-3" /> {t('actions.enrollStudent')}
+                                    </Button>
+                                </AddStudentDialog>
+                                {session.students && session.students.length > 0 && (
+                                    <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        className="flex-1 h-auto text-xs text-destructive hover:text-destructive font-normal"
+                                        onClick={() => setSessionToDeleteFrom(session)}
+                                    >
+                                        <Trash2 className="mr-2 h-3 w-3" /> {t('actions.removeStudent')}
+                                    </Button>
+                                )}
+                            </div>
                         </CardFooter>
                     )}
                   </Card>
@@ -391,6 +404,47 @@ const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onU
             teacherName={teacherName}
             onSessionCreated={onUpdate}
         />
+     )}
+     {sessionToDeleteFrom && semester && (
+        <Dialog open={!!sessionToDeleteFrom} onOpenChange={() => setSessionToDeleteFrom(null)}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>{t('actions.removeStudent')}</DialogTitle>
+                    <DialogDescription>
+                        {t('removal.selectStudentFromSession')}
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {sessionToDeleteFrom.students.map((sessionStudent) => {
+                        const fullStudent = allStudents.find(s => s.id === sessionStudent.id);
+                        if (!fullStudent) return null;
+                        
+                        return (
+                            <div key={sessionStudent.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                <div className="flex items-center gap-3">
+                                    <User className="h-4 w-4 text-muted-foreground" />
+                                    <div>
+                                        <p className="font-medium">{sessionStudent.name}</p>
+                                        <p className="text-sm text-muted-foreground">{fullStudent.level}</p>
+                                    </div>
+                                </div>
+                                <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => {
+                                        handleRemoveStudent(sessionStudent, sessionToDeleteFrom);
+                                        setSessionToDeleteFrom(null);
+                                    }}
+                                >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    {t('actions.remove')}
+                                </Button>
+                            </div>
+                        );
+                    })}
+                </div>
+            </DialogContent>
+        </Dialog>
      )}
     </>
   );
