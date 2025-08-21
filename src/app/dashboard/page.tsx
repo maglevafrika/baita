@@ -367,10 +367,10 @@ const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onU
                               </div>
                     </CardContent>
                     {semester && (
-                        <CardFooter className="p-1 border-t">
+                        <CardFooter className="p-1 border-t bg-background">
                             <div className="flex w-full gap-1">
                                 <AddStudentDialog session={session} semester={semester} teacherName={teacherName} onStudentAdded={onUpdate} asChild>
-                                    <Button variant="ghost" size="sm" className="flex-1 h-auto text-xs text-muted-foreground font-normal">
+                                    <Button variant="ghost" size="sm" className={cn("h-auto text-xs font-normal", session.students && session.students.length > 0 ? "flex-1" : "w-full", "text-muted-foreground")}>
                                         <UserPlus className="mr-2 h-3 w-3" /> {t('actions.enrollStudent')}
                                     </Button>
                                 </AddStudentDialog>
@@ -378,7 +378,7 @@ const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onU
                                     <Button 
                                         variant="ghost" 
                                         size="sm" 
-                                        className="flex-1 h-auto text-xs text-destructive hover:text-destructive font-normal"
+                                        className="flex-1 h-auto text-xs text-destructive hover:text-destructive hover:bg-destructive/10 font-normal"
                                         onClick={() => setSessionToDeleteFrom(session)}
                                     >
                                         <Trash2 className="mr-2 h-3 w-3" /> {t('actions.removeStudent')}
