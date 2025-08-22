@@ -213,185 +213,202 @@ const ScheduleGrid = ({ processedSessions, dayFilter, semester, teacherName, onU
           <div className="sticky top-16 z-10 bg-background/95 backdrop-blur-sm h-12 flex items-center justify-center font-semibold border-b">
             {getDayName(day)}
           </div>
-          <div className="relative top-0 left-0 w-full min-h-[calc(12_*_7rem)]">
-             {timeSlots.map((time, index) => (
-                <div key={`${day}-${time}`} className="h-28 border-t group/cell relative">
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-8 w-8 rounded-full opacity-0 group-hover/cell:opacity-100 transition-opacity z-10"
-                        onClick={() => setSessionToCreate({ day, time: formatTimeForDisplay(time) })}
-                    >
-                        <UserPlus className="h-4 w-4 text-muted-foreground" />
-                    </Button>
-                </div>
-            ))}
-          </div>
-          <div className="absolute top-12 left-0 w-full">
-            {filteredSessions
-              .filter(session => session.day === day)
-              .map(session => (
-                <div
-                  key={session.id}
-                  className="absolute w-full p-1 z-20"
-                  style={{ 
-                    top: `${session.startRow * 7}rem`, 
-                    height: `${session.duration * 7}rem` 
-                  }}
-                >
-                  <Card className="w-full h-full flex flex-col shadow-sm bg-background border">
-                    <CardHeader className="p-3 pb-2">
-                        <div className="flex items-center justify-between">
-                            <div className="min-w-0 flex-1">
-                                <p className="font-semibold text-sm leading-tight truncate">{session.specialization}</p>
-                                <p className="text-xs text-muted-foreground">{session.time} - {session.endTime}</p>
-                            </div>
-                            <Badge variant="secondary" className="text-xs font-normal ml-2 flex-shrink-0">{session.type}</Badge>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-3 pt-0 flex-grow flex flex-col overflow-hidden">
-                        <Separator className="mb-2"/>
-                        <div className="flex-grow overflow-y-auto">
-                            {session.students && session.students.length > 0 ? (
-                                <div className="space-y-2">
-                                    {session.students.map((student: SessionStudent) => {
-                                        const isOnLeave = studentLeaves.some(l => l.personId === student.id);
-                                        const attendance = isOnLeave ? 'excused' : student.attendance;
+          <div className="space-y-px">
+             {timeSlots.map((time, index) => {
+               // Check if there's a session starting at this time slot
+               const sessionAtThisTime = filteredSessions.find(session => 
+                 session.day === day && session.startRow === index
+               );
+               
+               if (sessionAtThisTime) {
+                 // Render session card spanning multiple rows
+                 return (
+                   <div 
+                     key={`${day}-${time}`} 
+                     className="bg-background border-t group/cell relative p-1"
+                     style={{ minHeight: `${sessionAtThisTime.duration * 7}rem` }}
+                   >
+                     <Card className="w-full h-full flex flex-col shadow-sm bg-background border">
+                       <CardHeader className="p-3 pb-2">
+                           <div className="flex items-center justify-between">
+                               <div className="min-w-0 flex-1">
+                                   <p className="font-semibold text-sm leading-tight truncate">{sessionAtThisTime.specialization}</p>
+                                   <p className="text-xs text-muted-foreground">{sessionAtThisTime.time} - {sessionAtThisTime.endTime}</p>
+                               </div>
+                               <Badge variant="secondary" className="text-xs font-normal ml-2 flex-shrink-0">{sessionAtThisTime.type}</Badge>
+                           </div>
+                       </CardHeader>
+                       <CardContent className="p-3 pt-0 flex-grow flex flex-col overflow-hidden">
+                           <Separator className="mb-2"/>
+                           <div className="flex-grow overflow-y-auto">
+                               {sessionAtThisTime.students && sessionAtThisTime.students.length > 0 ? (
+                                   <div className="space-y-2">
+                                       {sessionAtThisTime.students.map((student: SessionStudent) => {
+                                           const isOnLeave = studentLeaves.some(l => l.personId === student.id);
+                                           const attendance = isOnLeave ? 'excused' : student.attendance;
 
-                                        return (
-                                            <div key={student.id} className={cn(
-                                                "flex justify-between items-center p-2 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors group/student",
-                                                student.pendingRemoval && "opacity-50 bg-destructive/10"
-                                            )}>
-                                                <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                    <User className="h-3 w-3 shrink-0 text-muted-foreground" />
-                                                    <span className="text-xs font-medium truncate">{student.name}</span>
-                                                    {student.pendingRemoval && (
-                                                        <Badge variant="destructive" className="text-[9px] px-1 py-0 h-auto">
-                                                            <Hourglass className="h-2 w-2 mr-1" />
-                                                            Pending
-                                                        </Badge>
-                                                    )}
-                                                    {isOnLeave && (
-                                                        <Badge variant="outline" className="text-[9px] px-1 py-0 h-auto">
-                                                            Leave
-                                                        </Badge>
-                                                    )}
-                                                </div>
-                                                <div className="flex items-center gap-1 shrink-0">
-                                                    {/* Attendance Status Indicator */}
-                                                    <div className={cn(
-                                                        "w-2 h-2 rounded-full flex-shrink-0",
-                                                        attendance === 'present' && "bg-green-500",
-                                                        attendance === 'absent' && "bg-red-500",
-                                                        attendance === 'late' && "bg-amber-500",
-                                                        attendance === 'excused' && "bg-blue-500",
-                                                        !attendance && "bg-gray-300"
-                                                    )} />
+                                           return (
+                                               <div key={student.id} className={cn(
+                                                   "flex justify-between items-center p-2 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors group/student",
+                                                   student.pendingRemoval && "opacity-50 bg-destructive/10"
+                                               )}>
+                                                   <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                       <User className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                                       <span className="text-xs font-medium truncate">{student.name}</span>
+                                                       {student.pendingRemoval && (
+                                                           <Badge variant="destructive" className="text-[9px] px-1 py-0 h-auto">
+                                                               <Hourglass className="h-2 w-2 mr-1" />
+                                                               Pending
+                                                           </Badge>
+                                                       )}
+                                                       {isOnLeave && (
+                                                           <Badge variant="outline" className="text-[9px] px-1 py-0 h-auto">
+                                                               Leave
+                                                           </Badge>
+                                                       )}
+                                                   </div>
+                                                   <div className="flex items-center gap-1 shrink-0">
+                                                       {/* Attendance Status Indicator */}
+                                                       <div className={cn(
+                                                           "w-2 h-2 rounded-full flex-shrink-0",
+                                                           attendance === 'present' && "bg-green-500",
+                                                           attendance === 'absent' && "bg-red-500",
+                                                           attendance === 'late' && "bg-amber-500",
+                                                           attendance === 'excused' && "bg-blue-500",
+                                                           !attendance && "bg-gray-300"
+                                                       )} />
 
-                                                    {/* Attendance Popover */}
-                                                    <Popover>
-                                                        <PopoverTrigger asChild>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-5 w-5 opacity-0 group-hover/student:opacity-100 transition-opacity hover:bg-background flex-shrink-0"
-                                                                title="Mark Attendance"
-                                                            >
-                                                                <GripVertical className="h-2.5 w-2.5" />
-                                                            </Button>
-                                                        </PopoverTrigger>
-                                                        <PopoverContent className="w-auto p-1" align="end">
-                                                            <div className="flex gap-1">
-                                                                <Button
-                                                                    onClick={() => handleUpdateAttendance(student.id, session.id, day, 'present')}
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-6 w-6 hover:bg-green-50"
-                                                                    title="Present"
-                                                                >
-                                                                    <Check className="h-3 w-3 text-green-600" />
-                                                                </Button>
-                                                                <Button
-                                                                    onClick={() => handleUpdateAttendance(student.id, session.id, day, 'absent')}
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-6 w-6 hover:bg-red-50"
-                                                                    title="Absent"
-                                                                >
-                                                                    <X className="h-3 w-3 text-red-600" />
-                                                                </Button>
-                                                                <Button
-                                                                    onClick={() => handleUpdateAttendance(student.id, session.id, day, 'late')}
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-6 w-6 hover:bg-amber-50"
-                                                                    title="Late"
-                                                                >
-                                                                    <Clock className="h-3 w-3 text-amber-600" />
-                                                                </Button>
-                                                                <Button
-                                                                    onClick={() => handleUpdateAttendance(student.id, session.id, day, 'excused')}
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-6 w-6 hover:bg-blue-50"
-                                                                    title="Excused"
-                                                                >
-                                                                    <File className="h-3 w-3 text-blue-600" />
-                                                                </Button>
-                                                            </div>
-                                                        </PopoverContent>
-                                                    </Popover>
+                                                       {/* Attendance Popover */}
+                                                       <Popover>
+                                                           <PopoverTrigger asChild>
+                                                               <Button
+                                                                   variant="ghost"
+                                                                   size="icon"
+                                                                   className="h-5 w-5 opacity-0 group-hover/student:opacity-100 transition-opacity hover:bg-background flex-shrink-0"
+                                                                   title="Mark Attendance"
+                                                               >
+                                                                   <GripVertical className="h-2.5 w-2.5" />
+                                                               </Button>
+                                                           </PopoverTrigger>
+                                                           <PopoverContent className="w-auto p-1" align="end">
+                                                               <div className="flex gap-1">
+                                                                   <Button
+                                                                       onClick={() => handleUpdateAttendance(student.id, sessionAtThisTime.id, day, 'present')}
+                                                                       variant="ghost"
+                                                                       size="icon"
+                                                                       className="h-6 w-6 hover:bg-green-50"
+                                                                       title="Present"
+                                                                   >
+                                                                       <Check className="h-3 w-3 text-green-600" />
+                                                                   </Button>
+                                                                   <Button
+                                                                       onClick={() => handleUpdateAttendance(student.id, sessionAtThisTime.id, day, 'absent')}
+                                                                       variant="ghost"
+                                                                       size="icon"
+                                                                       className="h-6 w-6 hover:bg-red-50"
+                                                                       title="Absent"
+                                                                   >
+                                                                       <X className="h-3 w-3 text-red-600" />
+                                                                   </Button>
+                                                                   <Button
+                                                                       onClick={() => handleUpdateAttendance(student.id, sessionAtThisTime.id, day, 'late')}
+                                                                       variant="ghost"
+                                                                       size="icon"
+                                                                       className="h-6 w-6 hover:bg-amber-50"
+                                                                       title="Late"
+                                                                   >
+                                                                       <Clock className="h-3 w-3 text-amber-600" />
+                                                                   </Button>
+                                                                   <Button
+                                                                       onClick={() => handleUpdateAttendance(student.id, sessionAtThisTime.id, day, 'excused')}
+                                                                       variant="ghost"
+                                                                       size="icon"
+                                                                       className="h-6 w-6 hover:bg-blue-50"
+                                                                       title="Excused"
+                                                                   >
+                                                                       <File className="h-3 w-3 text-blue-600" />
+                                                                   </Button>
+                                                               </div>
+                                                           </PopoverContent>
+                                                       </Popover>
 
-                                                    {/* Delete Button */}
-                                                    <Button
-                                                        onClick={() => handleRemoveStudent(student, session)}
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-5 w-5 opacity-0 group-hover/student:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive flex-shrink-0"
-                                                        title={t('actions.removeFromSession', { name: student.name })}
-                                                    >
-                                                        <Trash2 className="h-2.5 w-2.5" />
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            ) : (
-                                <div className="flex-grow flex items-center justify-center py-4">
-                                    <div className="text-center">
-                                        <User className="h-6 w-6 mx-auto text-muted-foreground/50 mb-2" />
-                                        <p className="text-xs text-muted-foreground">{t('schedule.noStudentsEnrolled')}</p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </CardContent>
-                    {semester && (
-                        <CardFooter className="p-2 border-t bg-background/50">
-                            <div className="flex w-full gap-1">
-                                <AddStudentDialog session={session} semester={semester} teacherName={teacherName} onStudentAdded={onUpdate} asChild>
-                                    <Button variant="ghost" size="sm" className={cn("h-7 text-xs font-normal", session.students && session.students.length > 0 ? "flex-1" : "w-full", "text-muted-foreground hover:text-foreground")}>
-                                        <UserPlus className="mr-1 h-3 w-3" /> {t('actions.enrollStudent')}
-                                    </Button>
-                                </AddStudentDialog>
-                                {session.students && session.students.length > 0 && (
-                                    <Button 
-                                        variant="ghost" 
-                                        size="sm" 
-                                        className="flex-1 h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 font-normal"
-                                        onClick={() => setSessionToDeleteFrom(session)}
-                                    >
-                                        <Trash2 className="mr-1 h-3 w-3" /> {t('actions.removeStudent')}
-                                    </Button>
-                                )}
-                            </div>
-                        </CardFooter>
-                    )}
-                  </Card>
-                </div>
-              ))}
+                                                       {/* Delete Button */}
+                                                       <Button
+                                                           onClick={() => handleRemoveStudent(student, sessionAtThisTime)}
+                                                           variant="ghost"
+                                                           size="icon"
+                                                           className="h-5 w-5 opacity-0 group-hover/student:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive flex-shrink-0"
+                                                           title={t('actions.removeFromSession', { name: student.name })}
+                                                       >
+                                                           <Trash2 className="h-2.5 w-2.5" />
+                                                       </Button>
+                                                   </div>
+                                               </div>
+                                           )
+                                       })}
+                                   </div>
+                               ) : (
+                                   <div className="flex-grow flex items-center justify-center py-4">
+                                       <div className="text-center">
+                                           <User className="h-6 w-6 mx-auto text-muted-foreground/50 mb-2" />
+                                           <p className="text-xs text-muted-foreground">{t('schedule.noStudentsEnrolled')}</p>
+                                       </div>
+                                   </div>
+                               )}
+                           </div>
+                       </CardContent>
+                       {semester && (
+                           <CardFooter className="p-2 border-t bg-background/50">
+                               <div className="flex w-full gap-1">
+                                   <AddStudentDialog session={sessionAtThisTime} semester={semester} teacherName={teacherName} onStudentAdded={onUpdate} asChild>
+                                       <Button variant="ghost" size="sm" className={cn("h-7 text-xs font-normal", sessionAtThisTime.students && sessionAtThisTime.students.length > 0 ? "flex-1" : "w-full", "text-muted-foreground hover:text-foreground")}>
+                                           <UserPlus className="mr-1 h-3 w-3" /> {t('actions.enrollStudent')}
+                                       </Button>
+                                   </AddStudentDialog>
+                                   {sessionAtThisTime.students && sessionAtThisTime.students.length > 0 && (
+                                       <Button 
+                                           variant="ghost" 
+                                           size="sm" 
+                                           className="flex-1 h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 font-normal"
+                                           onClick={() => setSessionToDeleteFrom(sessionAtThisTime)}
+                                       >
+                                           <Trash2 className="mr-1 h-3 w-3" /> {t('actions.removeStudent')}
+                                       </Button>
+                                   )}
+                               </div>
+                           </CardFooter>
+                       )}
+                     </Card>
+                   </div>
+                 );
+               } else {
+                 // Check if this slot is occupied by a multi-row session from above
+                 const occupyingSession = filteredSessions.find(session => 
+                   session.day === day && 
+                   session.startRow < index && 
+                   session.startRow + session.duration > index
+                 );
+                 
+                 if (occupyingSession) {
+                   // This slot is occupied by a session that started earlier, skip it
+                   return null;
+                 }
+                 
+                 // Render empty time slot
+                 return (
+                   <div key={`${day}-${time}`} className="h-28 bg-background border-t group/cell relative">
+                       <Button 
+                           variant="ghost" 
+                           size="icon" 
+                           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-8 w-8 rounded-full opacity-0 group-hover/cell:opacity-100 transition-opacity z-10"
+                           onClick={() => setSessionToCreate({ day, time: formatTimeForDisplay(time) })}
+                       >
+                           <UserPlus className="h-4 w-4 text-muted-foreground" />
+                       </Button>
+                   </div>
+                 );
+               }
+             })}
           </div>
         </div>
       ))}
