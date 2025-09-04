@@ -86,6 +86,7 @@ const resources = {
         importStudents: "Import Students",
         addNewStudent: "Add New Student",
         removeStudent: "Remove Student",
+        requestRemoval: "Remove Request"
       },
       applicants: {
         title: "Applicant Management",
@@ -436,7 +437,8 @@ const resources = {
         addNewUser: "إضافة مستخدم جديد", 
         importStudents: "استيراد الطلاب", 
         addNewStudent: "إضافة طالب جديد",
-        removeStudent: "إزالة طالب"
+        removeStudent: "إزالة طالب",
+        requestRemoval: " إزالة الطلب"
       },
       applicants: {
         title: "إدارة المتقدمين",

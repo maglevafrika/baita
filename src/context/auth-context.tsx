@@ -249,72 +249,143 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [firebaseUser, users, usersLoaded, toast]);
 
   const login = async (emailOrUsername: string, password: string = STANDARD_PASSWORD): Promise<boolean> => {
-    console.log('Login attempt:', emailOrUsername);
+  console.log('Login attempt:', emailOrUsername);
+  try {
+    // Determine if input is email or username
+    let email = emailOrUsername;
+    if (!emailOrUsername.includes('@')) {
+      // It's a username, convert to email
+      email = getEmailFromUsername(emailOrUsername);
+    }
+
+    console.log('Converted to email:', email);
+
+    // Check if user exists in our database FIRST
+    const username = getUsernameFromEmail(email);
+    const userInDb = users.find((u) => u.username.toLowerCase() === username.toLowerCase());
+    
+    console.log('User lookup:', { username, userInDb: userInDb ? userInDb.username : 'not found' });
+    
+    if (!userInDb) {
+      toast({
+        title: "User Not Found",
+        description: "No user found with this username in our system.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    // Determine which password to use
+    let passwordToUse = password;
+    
+    // Special case: admin1 uses hardcoded password, others use their stored password or provided password
+    if (username.toLowerCase() === 'admin1') {
+      passwordToUse = STANDARD_PASSWORD; // Always use hardcoded password for admin1
+    } else {
+      // For other users, use the password they provided in login form
+      // If no password provided, try their stored password if it exists
+      if (password === STANDARD_PASSWORD && userInDb.password) {
+        passwordToUse = userInDb.password;
+      }
+    }
+
+    console.log('Using password for authentication:', username === 'admin1' ? 'hardcoded' : 'user-specific');
+
+    // Try Firebase authentication
     try {
-      // Determine if input is email or username
-      let email = emailOrUsername;
-      if (!emailOrUsername.includes('@')) {
-        // It's a username, convert to email
-        email = getEmailFromUsername(emailOrUsername);
-      }
-
-      console.log('Converted to email:', email);
-
-      // Check if user exists in our database FIRST
-      const username = getUsernameFromEmail(email);
-      const userInDb = users.find((u) => u.username.toLowerCase() === username.toLowerCase());
+      console.log('Attempting Firebase auth...');
+      const userCredential = await signInWithEmailAndPassword(auth, email, passwordToUse);
+      console.log('Firebase auth successful:', userCredential.user.email);
       
-      console.log('User lookup:', { username, userInDb: userInDb ? userInDb.username : 'not found' });
+      // Update last login time
+      await updateDoc(doc(db, 'users', userInDb.id), {
+        lastLogin: new Date().toISOString(),
+      });
       
-      if (!userInDb) {
-        toast({
-          title: "User Not Found",
-          description: "No user found with this username in our system.",
-          variant: "destructive",
-        });
-        return false;
-      }
-
-      // Try Firebase authentication
-      try {
-        console.log('Attempting Firebase auth...');
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        console.log('Firebase auth successful:', userCredential.user.email);
-        
-        // Update last login time
-        await updateDoc(doc(db, 'users', userInDb.id), {
-          lastLogin: new Date().toISOString(),
-        });
-        
-        toast({
-          title: "Login Successful",
-          description: `Welcome back, ${userInDb.name}!`,
-        });
-        
-        // The user state will be set by the useEffect above
-        // Wait a bit for the auth state to propagate
-        setTimeout(() => {
-          router.push('/dashboard');
-        }, 100);
-        
-        return true;
-        
-      } catch (firebaseError: any) {
-        console.error('Firebase auth error:', firebaseError);
-        
-        // If Firebase auth fails, check if it's because user doesn't exist in Firebase
-        if (firebaseError.code === 'auth/user-not-found') {
-          // Auto-create Firebase user with standard password
-          try {
-            console.log('Creating Firebase user...');
-            await createUserWithEmailAndPassword(auth, email, STANDARD_PASSWORD);
-            toast({
-              title: "Account Created",
-              description: "Your Firebase account has been created. Please try logging in again.",
-            });
-            return false; // Ask user to try again
-          } catch (createError: any) {
-            console.error('Failed to create Firebase user:', createError);
+      toast({
+        title: "Login Successful",
+        description: `Welcome back, ${userInDb.name}!`,
+      });
+      
+      // The user state will be set by the useEffect above
+      // Wait a bit for the auth state to propagate
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 100);
+      
+      return true;
+      
+    } catch (firebaseError: any) {
+      console.error('Firebase auth error:', firebaseError);
+      
+      // If Firebase auth fails, check if it's because user doesn't exist in Firebase
+      if (firebaseError.code === 'auth/user-not-found' || firebaseError.code === 'auth/invalid-credential') {
+        // Auto-create Firebase user with the appropriate password
+        try {
+          console.log('Creating Firebase user for:', email);
+          const userCredential = await createUserWithEmailAndPassword(auth, email, passwordToUse);
+          console.log('Firebase user created successfully:', userCredential.user.email);
+          
+          // Update last login time
+          await updateDoc(doc(db, 'users', userInDb.id), {
+            lastLogin: new Date().toISOString(),
+          });
+          
+          toast({
+            title: "Account Created & Login Successful",
+            description: `Welcome, ${userInDb.name}! Your Firebase account has been created.`,
+          });
+          
+          // Wait a bit for the auth state to propagate
+          setTimeout(() => {
+            router.push('/dashboard');
+          }, 100);
+          
+          return true;
+          
+        } catch (createError: any) {
+          console.error('Failed to create Firebase user:', createError);
+          
+          // If it's because the email already exists, try to sign in again
+          if (createError.code === 'auth/email-already-in-use') {
+            try {
+              console.log('Email exists, trying to sign in again...');
+              const retryCredential = await signInWithEmailAndPassword(auth, email, passwordToUse);
+              
+              // Update last login time
+              await updateDoc(doc(db, 'users', userInDb.id), {
+                lastLogin: new Date().toISOString(),
+              });
+              
+              toast({
+                title: "Login Successful",
+                description: `Welcome back, ${userInDb.name}!`,
+              });
+              
+              setTimeout(() => {
+                router.push('/dashboard');
+              }, 100);
+              
+              return true;
+              
+            } catch (retryError: any) {
+              console.error('Retry login failed:', retryError);
+              if (retryError.code === 'auth/wrong-password' || retryError.code === 'auth/invalid-credential') {
+                toast({
+                  title: "Invalid Password",
+                  description: "The password you entered is incorrect.",
+                  variant: "destructive",
+                });
+              } else {
+                toast({
+                  title: "Login Failed",
+                  description: "Account exists but login failed. Please contact admin.",
+                  variant: "destructive",
+                });
+              }
+              return false;
+            }
+          } else {
             toast({
               title: "Account Creation Failed",
               description: "Failed to create your account. Please contact admin.",
@@ -322,39 +393,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             });
             return false;
           }
-        } else if (firebaseError.code === 'auth/wrong-password') {
-          toast({
-            title: "Invalid Password",
-            description: "The password you entered is incorrect.",
-            variant: "destructive",
-          });
-          return false;
-        } else if (firebaseError.code === 'auth/invalid-credential') {
-          toast({
-            title: "Invalid Credentials",
-            description: "The email or password you entered is incorrect.",
-            variant: "destructive",
-          });
-          return false;
-        } else {
-          toast({
-            title: "Login Failed",
-            description: firebaseError.message || "Authentication failed. Please try again.",
-            variant: "destructive",
-          });
-          return false;
         }
+      } else if (firebaseError.code === 'auth/wrong-password' || firebaseError.code === 'auth/invalid-credential') {
+        toast({
+          title: "Invalid Password",
+          description: "The password you entered is incorrect.",
+          variant: "destructive",
+        });
+        return false;
+      } else {
+        toast({
+          title: "Login Failed",
+          description: firebaseError.message || "Authentication failed. Please try again.",
+          variant: "destructive",
+        });
+        return false;
       }
-    } catch (error: any) {
-      console.error('Login error:', error);
-      toast({
-        title: "Login Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive",
-      });
-      return false;
     }
-  };
+  } catch (error: any) {
+    console.error('Login error:', error);
+    toast({
+      title: "Login Error",
+      description: "An unexpected error occurred. Please try again.",
+      variant: "destructive",
+    });
+    return false;
+  }
+};
 
   const logout = async () => {
     try {
