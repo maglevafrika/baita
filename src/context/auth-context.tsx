@@ -44,7 +44,7 @@ interface AuthContextType {
   theme: Theme;
   setTheme: (theme: Theme) => void;
   refreshUsers: () => Promise<void>;
-  createAdminUser: () => Promise<void>;
+  createAdminUser: () => Promise<void>; // Add this line
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -79,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [customLogoUrl, setCustomLogoUrlState] = useState<string | null>(null);
   const [theme, setThemeState] = useState<Theme>('light');
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
-  const [usersLoaded, setUsersLoaded] = useState(false);
+  const [usersLoaded, setUsersLoaded] = useState(false); // Add this to track when users are loaded
   const router = useRouter();
   const { toast } = useToast();
 
@@ -147,7 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } as UserInDb));
       console.log('Users loaded from Firestore:', usersData.length);
       setUsers(usersData);
-      setUsersLoaded(true);
+      setUsersLoaded(true); // Mark users as loaded
       
       // Auto-create admin user if no users exist
       if (usersData.length === 0) {
@@ -206,7 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Sync user data when Firebase user changes
+  // Sync user data when Firebase user changes - FIXED VERSION
   useEffect(() => {
     console.log('Syncing user data:', { 
       firebaseUser: firebaseUser?.email, 
@@ -234,6 +234,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(sessionUser);
       } else {
         console.warn('User not found in Firestore database:', username);
+        // Don't automatically sign out - let the user know what's wrong
         toast({
           title: "User Profile Not Found",
           description: "Your account exists but user profile is missing. Please contact admin.",
@@ -248,185 +249,161 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [firebaseUser, users, usersLoaded, toast]);
 
   const login = async (emailOrUsername: string, password: string = STANDARD_PASSWORD): Promise<boolean> => {
-    console.log('Login attempt:', emailOrUsername);
-    try {
-      // Determine if input is email or username
-      let email = emailOrUsername;
-      if (!emailOrUsername.includes('@')) {
-        // It's a username, convert to email
-        email = getEmailFromUsername(emailOrUsername);
-      }
+  console.log('Login attempt:', emailOrUsername);
+  try {
+    // Determine if input is email or username
+    let email = emailOrUsername;
+    if (!emailOrUsername.includes('@')) {
+      // It's a username, convert to email
+      email = getEmailFromUsername(emailOrUsername);
+    }
 
-      console.log('Converted to email:', email);
+    console.log('Converted to email:', email);
 
-      // Check if user exists in our database FIRST
-      const username = getUsernameFromEmail(email);
-      const userInDb = users.find((u) => u.username.toLowerCase() === username.toLowerCase());
-      
-      console.log('User lookup:', { username, userInDb: userInDb ? userInDb.username : 'not found' });
-      
-      if (!userInDb) {
-        toast({
-          title: "User Not Found",
-          description: "No user found with this username in our system.",
-          variant: "destructive",
-        });
-        return false;
-      }
-
-      // Determine which password to use
-      let passwordToUse = password;
-      
-      // Special case: admin1 uses hardcoded password, others use their stored password
-      if (username.toLowerCase() === 'admin1') {
-        passwordToUse = STANDARD_PASSWORD; // Always use hardcoded password for admin1
-      } else {
-        // For other users, if they have a stored password, use that instead of the form input
-        if (userInDb.password) {
-          passwordToUse = userInDb.password;
-          console.log('Using stored password for user:', username);
-        } else {
-          // If no stored password, use what they provided in the form
-          passwordToUse = password;
-          console.log('Using form password for user:', username);
-        }
-      }
-
-      console.log('Password determination:', { 
-        username, 
-        hasStoredPassword: !!userInDb.password, 
-        usingStoredPassword: username.toLowerCase() !== 'admin1' && !!userInDb.password 
-      });
-
-      // Try Firebase authentication
-      try {
-        console.log('Attempting Firebase auth...');
-        const userCredential = await signInWithEmailAndPassword(auth, email, passwordToUse);
-        console.log('Firebase auth successful:', userCredential.user.email);
-        
-        // Update last login time
-        await updateDoc(doc(db, 'users', userInDb.id), {
-          lastLogin: new Date().toISOString(),
-        });
-        
-        toast({
-          title: "Login Successful",
-          description: `Welcome back, ${userInDb.name}!`,
-        });
-        
-        // The user state will be set by the useEffect above
-        // Wait a bit for the auth state to propagate
-        setTimeout(() => {
-          router.push('/dashboard');
-        }, 100);
-        
-        return true;
-        
-      } catch (firebaseError: any) {
-        console.error('Firebase auth error:', firebaseError);
-        
-        // If Firebase auth fails, check if it's because user doesn't exist in Firebase
-        if (firebaseError.code === 'auth/user-not-found' || firebaseError.code === 'auth/invalid-credential') {
-          // Auto-create Firebase user with the determined password
-          try {
-            console.log('Creating Firebase user for:', email);
-            const userCredential = await createUserWithEmailAndPassword(auth, email, passwordToUse);
-            console.log('Firebase user created successfully:', userCredential.user.email);
-            
-            // Update last login time
-            await updateDoc(doc(db, 'users', userInDb.id), {
-              lastLogin: new Date().toISOString(),
-            });
-            
-            toast({
-              title: "Account Created & Login Successful",
-              description: `Welcome, ${userInDb.name}! Your Firebase account has been created.`,
-            });
-            
-            // Wait a bit for the auth state to propagate
-            setTimeout(() => {
-              router.push('/dashboard');
-            }, 100);
-            
-            return true;
-            
-          } catch (createError: any) {
-            console.error('Failed to create Firebase user:', createError);
-            
-            // If it's because the email already exists, try to sign in again
-            if (createError.code === 'auth/email-already-in-use') {
-              try {
-                console.log('Email exists, trying to sign in again...');
-                const retryCredential = await signInWithEmailAndPassword(auth, email, passwordToUse);
-                
-                // Update last login time
-                await updateDoc(doc(db, 'users', userInDb.id), {
-                  lastLogin: new Date().toISOString(),
-                });
-                
-                toast({
-                  title: "Login Successful",
-                  description: `Welcome back, ${userInDb.name}!`,
-                });
-                
-                setTimeout(() => {
-                  router.push('/dashboard');
-                }, 100);
-                
-                return true;
-                
-              } catch (retryError: any) {
-                console.error('Retry login failed:', retryError);
-                if (retryError.code === 'auth/wrong-password' || retryError.code === 'auth/invalid-credential') {
-                  toast({
-                    title: "Invalid Password",
-                    description: "The password you entered is incorrect.",
-                    variant: "destructive",
-                  });
-                } else {
-                  toast({
-                    title: "Login Failed",
-                    description: "Account exists but login failed. Please contact admin.",
-                    variant: "destructive",
-                  });
-                }
-                return false;
-              }
-            } else {
-              toast({
-                title: "Account Creation Failed",
-                description: "Failed to create your account. Please contact admin.",
-                variant: "destructive",
-              });
-              return false;
-            }
-          }
-        } else if (firebaseError.code === 'auth/wrong-password' || firebaseError.code === 'auth/invalid-credential') {
-          toast({
-            title: "Invalid Password",
-            description: "The password you entered is incorrect.",
-            variant: "destructive",
-          });
-          return false;
-        } else {
-          toast({
-            title: "Login Failed",
-            description: firebaseError.message || "Authentication failed. Please try again.",
-            variant: "destructive",
-          });
-          return false;
-        }
-      }
-    } catch (error: any) {
-      console.error('Login error:', error);
+    // Check if user exists in our database FIRST
+    const username = getUsernameFromEmail(email);
+    const userInDb = users.find((u) => u.username.toLowerCase() === username.toLowerCase());
+    
+    console.log('User lookup:', { username, userInDb: userInDb ? userInDb.username : 'not found' });
+    
+    if (!userInDb) {
       toast({
-        title: "Login Error",
-        description: "An unexpected error occurred. Please try again.",
+        title: "User Not Found",
+        description: "No user found with this username in our system.",
         variant: "destructive",
       });
       return false;
     }
-  };
+
+    // Try Firebase authentication
+    try {
+      console.log('Attempting Firebase auth...');
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      console.log('Firebase auth successful:', userCredential.user.email);
+      
+      // Update last login time
+      await updateDoc(doc(db, 'users', userInDb.id), {
+        lastLogin: new Date().toISOString(),
+      });
+      
+      toast({
+        title: "Login Successful",
+        description: `Welcome back, ${userInDb.name}!`,
+      });
+      
+      // The user state will be set by the useEffect above
+      // Wait a bit for the auth state to propagate
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 100);
+      
+      return true;
+      
+    } catch (firebaseError: any) {
+      console.error('Firebase auth error:', firebaseError);
+      
+      // If Firebase auth fails, check if it's because user doesn't exist in Firebase
+      if (firebaseError.code === 'auth/user-not-found' || firebaseError.code === 'auth/invalid-credential') {
+        // Auto-create Firebase user with standard password
+        try {
+          console.log('Creating Firebase user for:', email);
+          const userCredential = await createUserWithEmailAndPassword(auth, email, STANDARD_PASSWORD);
+          console.log('Firebase user created successfully:', userCredential.user.email);
+          
+          // Update last login time
+          await updateDoc(doc(db, 'users', userInDb.id), {
+            lastLogin: new Date().toISOString(),
+          });
+          
+          toast({
+            title: "Account Created & Login Successful",
+            description: `Welcome, ${userInDb.name}! Your Firebase account has been created.`,
+          });
+          
+          // Wait a bit for the auth state to propagate
+          setTimeout(() => {
+            router.push('/dashboard');
+          }, 100);
+          
+          return true; // ✅ FIXED: Continue with login instead of returning false
+          
+        } catch (createError: any) {
+          console.error('Failed to create Firebase user:', createError);
+          
+          // If it's because the email already exists, try to sign in again
+          if (createError.code === 'auth/email-already-in-use') {
+            try {
+              console.log('Email exists, trying to sign in again...');
+              const retryCredential = await signInWithEmailAndPassword(auth, email, STANDARD_PASSWORD);
+              
+              // Update last login time
+              await updateDoc(doc(db, 'users', userInDb.id), {
+                lastLogin: new Date().toISOString(),
+              });
+              
+              toast({
+                title: "Login Successful",
+                description: `Welcome back, ${userInDb.name}!`,
+              });
+              
+              setTimeout(() => {
+                router.push('/dashboard');
+              }, 100);
+              
+              return true;
+              
+            } catch (retryError: any) {
+              console.error('Retry login failed:', retryError);
+              if (retryError.code === 'auth/wrong-password') {
+                toast({
+                  title: "Password Reset Required",
+                  description: "Your account exists but password doesn't match. Please contact admin to reset your password.",
+                  variant: "destructive",
+                });
+              } else {
+                toast({
+                  title: "Login Failed",
+                  description: "Account exists but login failed. Please contact admin.",
+                  variant: "destructive",
+                });
+              }
+              return false;
+            }
+          } else {
+            toast({
+              title: "Account Creation Failed",
+              description: "Failed to create your account. Please contact admin.",
+              variant: "destructive",
+            });
+            return false;
+          }
+        }
+      } else if (firebaseError.code === 'auth/wrong-password') {
+        toast({
+          title: "Invalid Password",
+          description: "The password you entered is incorrect.",
+          variant: "destructive",
+        });
+        return false;
+      } else {
+        toast({
+          title: "Login Failed",
+          description: firebaseError.message || "Authentication failed. Please try again.",
+          variant: "destructive",
+        });
+        return false;
+      }
+    }
+  } catch (error: any) {
+    console.error('Login error:', error);
+    toast({
+      title: "Login Error",
+      description: "An unexpected error occurred. Please try again.",
+      variant: "destructive",
+    });
+    return false;
+  }
+};
 
   const logout = async () => {
     try {
@@ -596,82 +573,82 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, toast]);
 
   const setCustomLogo = async (url: string | null) => {
-    try {
-      const settingsRef = doc(db, 'settings', 'app');
-      
-      // Check if document exists first
-      const docSnapshot = await getDoc(settingsRef);
-      
-      if (docSnapshot.exists()) {
-        // Document exists, update it
-        await updateDoc(settingsRef, {
-          customLogoUrl: url,
-          updatedAt: new Date().toISOString(),
-        });
-      } else {
-        // Document doesn't exist, create it with setDoc
-        await setDoc(settingsRef, {
-          customLogoUrl: url,
-          theme: theme, // Include current theme
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        });
-      }
-      
-      toast({
-        title: "Logo Updated",
-        description: url ? "Custom logo has been set." : "Logo has been reset to default."
+  try {
+    const settingsRef = doc(db, 'settings', 'app');
+    
+    // Check if document exists first
+    const docSnapshot = await getDoc(settingsRef);
+    
+    if (docSnapshot.exists()) {
+      // Document exists, update it
+      await updateDoc(settingsRef, {
+        customLogoUrl: url,
+        updatedAt: new Date().toISOString(),
       });
-    } catch (error: any) {
-      console.error('Logo update error:', error);
-      toast({
-        title: "Error",
-        description: `Failed to update logo: ${error.message}`,
-        variant: "destructive"
+    } else {
+      // Document doesn't exist, create it with setDoc
+      await setDoc(settingsRef, {
+        customLogoUrl: url,
+        theme: theme, // Include current theme
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
     }
-  };
+    
+    toast({
+      title: "Logo Updated",
+      description: url ? "Custom logo has been set." : "Logo has been reset to default."
+    });
+  } catch (error: any) {
+    console.error('Logo update error:', error);
+    toast({
+      title: "Error",
+      description: `Failed to update logo: ${error.message}`,
+      variant: "destructive"
+    });
+  }
+};
 
-  const setTheme = async (newTheme: Theme) => {
-    try {
-      const settingsRef = doc(db, 'settings', 'app');
-      
-      // Check if document exists first
-      const docSnapshot = await getDoc(settingsRef);
-      
-      if (docSnapshot.exists()) {
-        // Document exists, update it
-        await updateDoc(settingsRef, {
-          theme: newTheme,
-          updatedAt: new Date().toISOString(),
-        });
-      } else {
-        // Document doesn't exist, create it with setDoc
-        await setDoc(settingsRef, {
-          theme: newTheme,
-          customLogoUrl: customLogoUrl, // Include current logo
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        });
-      }
-      
-      // Update local state immediately for better UX
-      setThemeState(newTheme);
-      localStorage.setItem('app-theme', newTheme);
-      
-      toast({
-        title: "Theme Updated",
-        description: `Theme switched to ${newTheme} mode.`
+const setTheme = async (newTheme: Theme) => {
+  try {
+    const settingsRef = doc(db, 'settings', 'app');
+    
+    // Check if document exists first
+    const docSnapshot = await getDoc(settingsRef);
+    
+    if (docSnapshot.exists()) {
+      // Document exists, update it
+      await updateDoc(settingsRef, {
+        theme: newTheme,
+        updatedAt: new Date().toISOString(),
       });
-    } catch (error: any) {
-      console.error('Theme update error:', error);
-      toast({
-        title: "Error",
-        description: `Failed to update theme: ${error.message}`,
-        variant: "destructive"
+    } else {
+      // Document doesn't exist, create it with setDoc
+      await setDoc(settingsRef, {
+        theme: newTheme,
+        customLogoUrl: customLogoUrl, // Include current logo
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
     }
-  };
+    
+    // Update local state immediately for better UX
+    setThemeState(newTheme);
+    localStorage.setItem('app-theme', newTheme);
+    
+    toast({
+      title: "Theme Updated",
+      description: `Theme switched to ${newTheme} mode.`
+    });
+  } catch (error: any) {
+    console.error('Theme update error:', error);
+    toast({
+      title: "Error",
+      description: `Failed to update theme: ${error.message}`,
+      variant: "destructive"
+    });
+  }
+};
 
   const refreshUsers = async () => {
     try {
@@ -698,7 +675,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     updateUser,
     deleteUser,
     refreshUsers,
-    createAdminUser,
+    createAdminUser, // Add this line
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
