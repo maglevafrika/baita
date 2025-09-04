@@ -21,7 +21,7 @@ import ReCAPTCHA from "react-google-recaptcha";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
-  const [password, setPassword] = useState(""); // Remove default password
+  const [password, setPassword] = useState("Rs@!2325"); // Set default password
   const [isLoading, setIsLoading] = useState(false);
   const [isCaptchaVerified, setIsCaptchaVerified] = useState(false);
   const { login, user, loading } = useAuth();
@@ -42,20 +42,10 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!isCaptchaVerified) {
         toast({
             title: "CAPTCHA Required",
             description: "Please complete the reCAPTCHA challenge before signing in.",
-            variant: "destructive",
-        });
-        return;
-    }
-    
-    if (!password.trim()) {
-        toast({
-            title: "Password Required",
-            description: "Please enter your password.",
             variant: "destructive",
         });
         return;
@@ -110,7 +100,7 @@ export default function LoginPage() {
                 <Label htmlFor="username">Username</Label>
                 <Input
                   id="username"
-                  placeholder="e.g., admin1, manar, pesh"
+                  placeholder="e.g., admin1, manar, نهاد"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required

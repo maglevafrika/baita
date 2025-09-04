@@ -275,26 +275,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
-    // Determine which password to use
-    let passwordToUse = password;
-    
-    // Special case: admin1 uses hardcoded password, others use their stored password or provided password
-    if (username.toLowerCase() === 'admin1') {
-      passwordToUse = STANDARD_PASSWORD; // Always use hardcoded password for admin1
-    } else {
-      // For other users, use the password they provided in login form
-      // If no password provided, try their stored password if it exists
-      if (password === STANDARD_PASSWORD && userInDb.password) {
-        passwordToUse = userInDb.password;
-      }
-    }
-
-    console.log('Using password for authentication:', username === 'admin1' ? 'hardcoded' : 'user-specific');
-
     // Try Firebase authentication
     try {
       console.log('Attempting Firebase auth...');
-      const userCredential = await signInWithEmailAndPassword(auth, email, passwordToUse);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
       console.log('Firebase auth successful:', userCredential.user.email);
       
       // Update last login time
@@ -320,10 +304,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // If Firebase auth fails, check if it's because user doesn't exist in Firebase
       if (firebaseError.code === 'auth/user-not-found' || firebaseError.code === 'auth/invalid-credential') {
-        // Auto-create Firebase user with the appropriate password
+        // Auto-create Firebase user with standard password
         try {
           console.log('Creating Firebase user for:', email);
-          const userCredential = await createUserWithEmailAndPassword(auth, email, passwordToUse);
+          const userCredential = await createUserWithEmailAndPassword(auth, email, STANDARD_PASSWORD);
           console.log('Firebase user created successfully:', userCredential.user.email);
           
           // Update last login time
@@ -341,7 +325,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             router.push('/dashboard');
           }, 100);
           
-          return true;
+          return true; // ✅ FIXED: Continue with login instead of returning false
           
         } catch (createError: any) {
           console.error('Failed to create Firebase user:', createError);
@@ -350,7 +334,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (createError.code === 'auth/email-already-in-use') {
             try {
               console.log('Email exists, trying to sign in again...');
-              const retryCredential = await signInWithEmailAndPassword(auth, email, passwordToUse);
+              const retryCredential = await signInWithEmailAndPassword(auth, email, STANDARD_PASSWORD);
               
               // Update last login time
               await updateDoc(doc(db, 'users', userInDb.id), {
@@ -370,10 +354,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               
             } catch (retryError: any) {
               console.error('Retry login failed:', retryError);
-              if (retryError.code === 'auth/wrong-password' || retryError.code === 'auth/invalid-credential') {
+              if (retryError.code === 'auth/wrong-password') {
                 toast({
-                  title: "Invalid Password",
-                  description: "The password you entered is incorrect.",
+                  title: "Password Reset Required",
+                  description: "Your account exists but password doesn't match. Please contact admin to reset your password.",
                   variant: "destructive",
                 });
               } else {
@@ -394,7 +378,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return false;
           }
         }
-      } else if (firebaseError.code === 'auth/wrong-password' || firebaseError.code === 'auth/invalid-credential') {
+      } else if (firebaseError.code === 'auth/wrong-password') {
         toast({
           title: "Invalid Password",
           description: "The password you entered is incorrect.",
